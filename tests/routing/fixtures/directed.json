@@ -1,0 +1,1 @@
+{"schema_version":1,"id":"CORE-001","start":"A","goal":"B","roads":[{"id":"ab","from":"A","to":"B","cost":4}]}
