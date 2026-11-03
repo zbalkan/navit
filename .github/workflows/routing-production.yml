@@ -1,0 +1,44 @@
+name: Navit production routing regression
+
+on:
+  push:
+    branches: [trunk, 'test/**']
+    paths:
+      - 'navit/route.c'
+      - 'navit/CMakeLists.txt'
+      - 'CMakeLists.txt'
+      - 'tests/routing/**'
+      - '.github/workflows/routing-production.yml'
+  pull_request:
+    paths:
+      - 'navit/route.c'
+      - 'navit/CMakeLists.txt'
+      - 'CMakeLists.txt'
+      - 'tests/routing/**'
+      - '.github/workflows/routing-production.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  routing-production:
+    name: Production LPA* C smoke tests
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
+    steps:
+      - name: Install checkout tools
+        run: apt-get update && apt-get install -y --no-install-recommends git ca-certificates
+      - uses: actions/checkout@v4
+      - name: Install Navit build requirements
+        run: |
+          bash scripts/setup_common_requirements.sh
+          apt-get install -y --no-install-recommends libpng-dev libfreetype6-dev libdbus-glib-1-dev libgtk2.0-dev cmake
+      - name: Configure routing production test target
+        run: |
+          cmake -S . -B build-routing -DNAVIT_ROUTING_TEST_HOOKS=ON -DSVG2PNG=OFF -DXPM2PNG=OFF -Dgraphics/qt_qpainter:BOOL=FALSE -Dgui/qml:BOOL=FALSE
+      - name: Build routing production smoke test
+        run: cmake --build build-routing --target navit_routing_production_test --parallel 2
+      - name: Execute production routing tests
+        run: ctest --test-dir build-routing --output-on-failure -R '^routing_production_search$'
