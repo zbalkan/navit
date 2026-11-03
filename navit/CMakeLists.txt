@@ -117,6 +117,19 @@ if (DEFINED NAVIT_COMPILE_FLAGS)
 	set_target_properties(${NAVIT_LIBNAME} PROPERTIES COMPILE_FLAGS "${NAVIT_COMPILE_FLAGS}")
 endif()
 
+if(NAVIT_ROUTING_TEST_HOOKS)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        message(FATAL_ERROR "NAVIT_ROUTING_TEST_HOOKS currently supports GNU/Clang Linux builds")
+    endif()
+    target_compile_definitions(${NAVIT_LIBNAME} PRIVATE NAVIT_ROUTING_TEST_HOOKS=1)
+    add_executable(navit_routing_production_test
+        ${PROJECT_SOURCE_DIR}/tests/routing/test_production.c)
+    target_include_directories(navit_routing_production_test PRIVATE
+        ${PROJECT_SOURCE_DIR}/tests/routing)
+    target_link_libraries(navit_routing_production_test PRIVATE ${NAVIT_LIBNAME})
+    add_test(NAME routing_production_search COMMAND navit_routing_production_test)
+endif()
+
 add_custom_command(
 	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/navit.dtd"
 	COMMENT "Copy navit.dtd to ${CMAKE_CURRENT_BINARY_DIR}/navit.dtd"
