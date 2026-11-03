@@ -4362,3 +4362,8 @@ struct object_func route_func = {
     (object_func_ref)navit_object_ref,
     (object_func_unref)navit_object_unref,
 };
+
+/* Test-only access to static routing internals; production builds do not compile this. */
+#ifdef NAVIT_ROUTING_TEST_HOOKS
+#include "../tests/routing/production_hooks.inc"
+#endif
