@@ -1,0 +1,1 @@
+{"schema_version":1,"id":"CORE-003","start":"A","goal":"C","roads":[{"id":"ab","from":"A","to":"B","cost":1},{"id":"bc","from":"B","to":"C","cost":1},{"id":"bd","from":"B","to":"D","cost":3},{"id":"dc","from":"D","to":"C","cost":4}],"transitions":[{"incoming":"ab","outgoing":"bc","prohibited":true}]}
