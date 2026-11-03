@@ -1,0 +1,1 @@
+{"schema_version":1,"id":"INCR-006","start":"A","goal":"G","roads":[{"id":"ab","from":"A","to":"B","cost":1},{"id":"bc","from":"B","to":"C","cost":1},{"id":"cg","from":"C","to":"G","cost":1},{"id":"bd","from":"B","to":"D","cost":1},{"id":"dg","from":"D","to":"G","cost":1}],"transitions":[{"incoming":"ab","outgoing":"bc","penalty":20}]}
