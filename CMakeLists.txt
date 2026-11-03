@@ -981,6 +981,11 @@ if (NOT NAVIT_DEPENDENCY_ERROR)
 	message("\nTo configure your build use 'cmake -L' to find changeable variables and run cmake again with 'cmake -D <var-name>=<your value> ...'.")
 endif(NOT NAVIT_DEPENDENCY_ERROR)
 
+option(NAVIT_ROUTING_TEST_HOOKS "Build deterministic tests against production routing internals" OFF)
+if(NAVIT_ROUTING_TEST_HOOKS)
+    enable_testing()
+endif()
+
 add_subdirectory (navit)
 add_subdirectory (man)
 
