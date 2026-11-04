@@ -27,7 +27,7 @@ static int navit_routing_test_partial_start(int case_id) {
     road_item.id_lo = 700;
     data.item = &road_item;
     data.flags = AF_SPEED_LIMIT;
-    if (case_id == 20)
+    if (case_id == 20 || case_id == 24)
         data.flags |= AF_ONEWAY;
     data.maxspeed = 36;
     data.len = 10;
@@ -46,6 +46,25 @@ static int navit_routing_test_partial_start(int case_id) {
     ac = a->start;
 
     c->dst_val = 0;
+    if (case_id >= 22) {
+        int from_percent = (case_id == 23 || case_id == 24) ? 75 : 25;
+        int to_percent = (case_id == 23 || case_id == 24) ? 25 : 75;
+        if (case_id == 25)
+            to_percent = from_percent;
+        result = route_turn_plan_direct_on_segment(&profile, ab, from_percent, to_percent, 0, &plan);
+        if (case_id == 24)
+            result = !result && plan.cost == INT_MAX && plan.len == 0;
+        else if (case_id == 25)
+            result = result && plan.cost == 0 && plan.len == 0;
+        else
+            result = result && plan.cost == 5 && plan.len == 1
+                     && plan.segments[0] == ab
+                     && plan.directions[0] == (case_id == 22 ? 1 : -1);
+        if (!result)
+            fprintf(stderr, "Direct-on-segment case %d failed: cost=%d len=%u\n",
+                    case_id, plan.cost, plan.len);
+        goto cleanup;
+    }
     if (case_id == 21)
         profile.turn_around_penalty = 4;
     result = route_turn_plan_from_segment(graph, &profile, ab, 25, case_id == 21 ? 1 : 0, &plan);
@@ -66,6 +85,7 @@ static int navit_routing_test_partial_start(int case_id) {
         fprintf(stderr, "Partial-road start case %d: cost=%d expected=%d direction=%d expected_dir=%d\n",
                 case_id, plan.cost, expected, plan.len ? plan.directions[0] : 0, expected_direction);
 
+cleanup:
     route_turn_path_clear(&plan);
     route_graph_free_segments(graph);
     route_graph_free_points(graph);
