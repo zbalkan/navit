@@ -40,28 +40,59 @@ static struct route_turn_state *route_turn_state_find(GHashTable *forward, GHash
     return g_hash_table_lookup(direction > 0 ? forward : reverse, s);
 }
 
+/* The outgoing movement's penalty is independent of its road length.
+ * Destination partial-road candidates already carry their travel time
+ * in dst_val, but must still pay their incoming-to-terminal turn cost.
+ */
+static int route_turn_transition_penalty(struct vehicleprofile *profile, struct route_graph_segment *previous,
+                                         struct route_graph_segment *next) {
+    int extra = 0;
+    if (!previous)
+        return 0;
+    if (previous == next) {
+        if (!profile->turn_around_penalty2)
+            return INT_MAX;
+        extra = profile->turn_around_penalty2;
+    }
+    if (!route_through_traffic_allowed(profile, previous) && route_through_traffic_allowed(profile, next)) {
+        if (profile->through_traffic_penalty < 0 || extra > INT_MAX - profile->through_traffic_penalty)
+            return INT_MAX;
+        extra += profile->through_traffic_penalty;
+    }
+    return extra;
+}
+
 static int route_turn_transition_cost(struct vehicleprofile *profile, struct route_graph_segment *previous,
                                       struct route_graph_segment *next, int direction) {
     int step = route_value_seg(profile, NULL, next, direction);
-    int extra = 0;
+    int extra = route_turn_transition_penalty(profile, previous, next);
 
-    if (step == INT_MAX)
-        return INT_MAX;
-    if (previous) {
-        if (previous == next) {
-            if (!profile->turn_around_penalty2)
-                return INT_MAX;
-            extra = profile->turn_around_penalty2;
-        }
-        if (!route_through_traffic_allowed(profile, previous) && route_through_traffic_allowed(profile, next)) {
-            if (profile->through_traffic_penalty < 0 || extra > INT_MAX - profile->through_traffic_penalty)
-                return INT_MAX;
-            extra += profile->through_traffic_penalty;
-        }
-    }
-    if (step > INT_MAX - extra)
+    if (step == INT_MAX || extra == INT_MAX || step > INT_MAX - extra)
         return INT_MAX;
     return step + extra;
+}
+
+static int route_turn_terminal_cost(struct vehicleprofile *profile, struct route_turn_state *state) {
+    struct route_graph_segment *segment = state->point->dst_seg;
+    int direction, extra, remaining = state->point->dst_val;
+
+    if (remaining == INT_MAX || remaining < 0 || !segment)
+        return remaining;
+    if (segment->start == state->point)
+        direction = 1;
+    else if (segment->end == state->point)
+        direction = -1;
+    else
+        return INT_MAX;
+    /* A destination candidate's partial segment must remain traversable
+     * in the departure direction, even after a traffic revision.
+     */
+    if (route_value_seg(profile, NULL, segment, direction) == INT_MAX)
+        return INT_MAX;
+    extra = route_turn_transition_penalty(profile, state->incoming, segment);
+    if (extra == INT_MAX || remaining > INT_MAX - extra)
+        return INT_MAX;
+    return remaining + extra;
 }
 
 static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct vehicleprofile *profile,
@@ -134,7 +165,7 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
          */
         if (state->cost >= best_terminal)
             break;
-        terminal_cost = goal ? (state->point == goal ? 0 : INT_MAX) : state->point->dst_val;
+        terminal_cost = goal ? (state->point == goal ? 0 : INT_MAX) : route_turn_terminal_cost(profile, state);
         if (terminal_cost != INT_MAX && terminal_cost >= 0
             && state->cost <= INT_MAX - terminal_cost
             && state->cost + terminal_cost < best_terminal) {
