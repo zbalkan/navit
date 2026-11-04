@@ -134,6 +134,12 @@ if(NAVIT_ROUTING_TEST_HOOKS)
         ${PROJECT_SOURCE_DIR}/tests/routing)
     target_link_libraries(navit_routing_state_test PRIVATE ${NAVIT_LIBNAME})
     add_test(NAME routing_turn_state_candidate COMMAND navit_routing_state_test)
+    add_executable(navit_routing_turn_path_test
+        ${PROJECT_SOURCE_DIR}/tests/routing/test_turn_path.c)
+    target_include_directories(navit_routing_turn_path_test PRIVATE
+        ${PROJECT_SOURCE_DIR}/tests/routing)
+    target_link_libraries(navit_routing_turn_path_test PRIVATE ${NAVIT_LIBNAME})
+    add_test(NAME routing_turn_state_path COMMAND navit_routing_turn_path_test)
 endif()
 
 add_custom_command(
