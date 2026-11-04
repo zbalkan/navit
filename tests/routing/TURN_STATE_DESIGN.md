@@ -237,6 +237,33 @@ A fresh state-aware graph search is run after a cost change. Case 18
 proves this recomputation path, not incremental movement-state repair.
 The legacy production Red cases remain unchanged.
 
+## Stage B3: Opt-in live-routing shadow evaluation
+
+The disabled-by-default CMake option
+`NAVIT_ROUTING_TURN_SHADOW=ON` now invokes the new projected-position
+planner inside the actual `route_path_new()` lifecycle. For each
+map-matched start segment, it computes a candidate cost and reports
+the lowest cost at debug level. The legacy path construction and
+`point->value/rhs/seg` are deliberately left untouched.
+
+The routing-candidate CI configuration enables this option so the
+integration compiles with the real production path function. CI does
+not currently execute a geographic route through that function.
+Thus shadow compilation is a **necessary integration check**, not
+proof of real-map route correctness.
+
+Limitations remain substantial: direct travel between two positions
+on the same segment, destination-geometry projection, waypoint
+accumulation, restriction clones, and dynamic graph changes during
+route construction all require end-to-end validation. The candidate
+cost does not replace the visible route, ETA, or navigation
+instructions.
+
+`NAVIT_ROUTING_TURN_SHADOW` must stay OFF for general releases
+until those conditions are covered and production semantics are
+fully wired. The comparison benchmark is a separate executable
+and does not enable the new engine as the default router.
+
 ## Development sequence
 
 1. **Red**: Preserve the reproducible compiled production failures and
