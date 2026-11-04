@@ -2,6 +2,8 @@
  * Never compiled unless NAVIT_ROUTING_TEST_HOOKS is enabled.
  * These tests exercise actual Navit update/propagation functions.
  */
+static int navit_routing_test_penalty_case(int case_id);
+
 int navit_routing_test_case(int case_id) {
     if (case_id == 4 || case_id == 5)
         return navit_routing_test_penalty_case(case_id);
