@@ -6,6 +6,7 @@ on:
     paths:
       - 'tests/routing/benchmark_production.inc'
       - 'tests/routing/test_benchmark.c'
+      - 'tests/routing/validate_benchmark_csv.py'
       - 'tests/routing/production_hooks.h'
       - 'navit/route.c'
       - 'navit/route_turn_state.inc'
@@ -54,6 +55,8 @@ jobs:
         run: |
           set -o pipefail
           build-routing/navit/navit_routing_benchmark | tee routing-benchmark.csv
+      - name: Validate benchmark CSV completeness
+        run: python3 tests/routing/validate_benchmark_csv.py routing-benchmark.csv
       - name: Upload raw benchmark measurements
         if: always()
         uses: actions/upload-artifact@v4
