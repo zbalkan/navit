@@ -1,10 +1,12 @@
+#include "production_hooks.h"
+
 /*
  * Benchmark input is a deterministic synthetic routing graph, not a map.
  * Both search implementations operate on the same live Navit segments.
  * Times measure search/repair, excluding graph construction. The
  * candidate currently performs full Dijkstra recomputation on updates.
  */
-static int navit_routing_benchmark(int n, int repeats, int shortcuts) {
+int navit_routing_benchmark(int n, int repeats, int shortcuts) {
     struct route_graph *graph = g_new0(struct route_graph, 1);
     struct vehicleprofile profile = { 0 };
     struct roadprofile road_profile = { 0 };
