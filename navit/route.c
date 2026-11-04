@@ -4363,13 +4363,11 @@ struct object_func route_func = {
     (object_func_unref)navit_object_unref,
 };
 
-/* State-aware path calculation is isolated until its data structures support
- * Navit's non-GLib platforms and complete route-path integration is tested.
- */
-#ifdef NAVIT_ROUTING_TEST_HOOKS
-#    include "route_turn_state.inc"
+/* Portable movement-state solver; currently not selected by normal routing. */
+#include "route_turn_state.inc"
 
 /* Test-only access to static routing internals. */
+#ifdef NAVIT_ROUTING_TEST_HOOKS
 #    include "../tests/routing/production_hooks.inc"
 #    include "../tests/routing/production_penalty_cases.inc"
 #    include "../tests/routing/production_state_solver.inc"
