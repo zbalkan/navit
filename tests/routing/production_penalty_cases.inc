@@ -111,13 +111,13 @@ static int navit_routing_test_penalty_case(int case_id) {
         result = observed == expected && (case_id == 7 || case_id == 10 || b->seg == bc)
                  && a->value == a->rhs && !fh_min(graph->heap);
         if (case_id == 10)
-            result = result && path.segments && path.segments->len == 3
-                     && g_ptr_array_index(path.segments, 0) == ab
-                     && g_ptr_array_index(path.segments, 1) == bd
-                     && g_ptr_array_index(path.segments, 2) == dg
-                     && g_array_index(path.directions, int, 0) == 1
-                     && g_array_index(path.directions, int, 1) == 1
-                     && g_array_index(path.directions, int, 2) == 1;
+            result = result && path.segments && path.len == 3
+                     && path.segments[0] == ab
+                     && path.segments[1] == bd
+                     && path.segments[2] == dg
+                     && path.directions[0] == 1
+                     && path.directions[1] == 1
+                     && path.directions[2] == 1;
     } else if (fixture_case == 6) {
         expected = 4;
         observed = case_id == 12 ? (route_turn_graph_path(graph, &profile, a, goal, &path) ? path.cost : INT_MAX)
@@ -129,13 +129,13 @@ static int navit_routing_test_penalty_case(int case_id) {
                  && !fh_min(graph->heap);
         if (case_id == 12)
             result = result && path.segments && second.segments
-                     && path.segments->len == 3 && second.segments->len == 3
-                     && g_ptr_array_index(path.segments, 0) == ab
-                     && g_ptr_array_index(path.segments, 1) == bd
-                     && g_ptr_array_index(path.segments, 2) == dg
-                     && g_ptr_array_index(second.segments, 0) == xb
-                     && g_ptr_array_index(second.segments, 1) == bc
-                     && g_ptr_array_index(second.segments, 2) == cg;
+                     && path.len == 3 && second.len == 3
+                     && path.segments[0] == ab
+                     && path.segments[1] == bd
+                     && path.segments[2] == dg
+                     && second.segments[0] == xb
+                     && second.segments[1] == bc
+                     && second.segments[2] == cg;
         if (case_id == 12) {
             route_turn_path_clear(&path);
             route_turn_path_clear(&second);
@@ -144,11 +144,11 @@ static int navit_routing_test_penalty_case(int case_id) {
                      && route_turn_graph_path_from_arrival(graph, &profile, b, xb, 1, goal, &second);
             if (result)
                 result = path.cost == 3 && second.cost == 2
-                         && path.segments->len == 2 && second.segments->len == 2
-                         && g_ptr_array_index(path.segments, 0) == bd
-                         && g_ptr_array_index(path.segments, 1) == dg
-                         && g_ptr_array_index(second.segments, 0) == bc
-                         && g_ptr_array_index(second.segments, 1) == cg;
+                         && path.len == 2 && second.len == 2
+                         && path.segments[0] == bd
+                         && path.segments[1] == dg
+                         && second.segments[0] == bc
+                         && second.segments[1] == cg;
         }
     } else if (fixture_case == 5) {
         /* INCR-006: initially B->D costs 2 versus B->C costs 3.
@@ -175,10 +175,10 @@ static int navit_routing_test_penalty_case(int case_id) {
                  && b->value == 2 && observed == expected
                  && a->value == a->rhs && !fh_min(graph->heap);
         if (case_id == 11)
-            result = result && path.segments && path.segments->len == 3
-                     && g_ptr_array_index(path.segments, 0) == ab
-                     && g_ptr_array_index(path.segments, 1) == bd
-                     && g_ptr_array_index(path.segments, 2) == dg;
+            result = result && path.segments && path.len == 3
+                     && path.segments[0] == ab
+                     && path.segments[1] == bd
+                     && path.segments[2] == dg;
     } else {
         expected = -1;
         observed = -1;
