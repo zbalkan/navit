@@ -174,7 +174,7 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
         out->segments = g_ptr_array_new();
         out->directions = g_array_new(FALSE, FALSE, sizeof(int));
         out->cost = winner->cost;
-        for (state = winner; state && state->incoming; state = state->previous)
+        for (state = winner; state && state != initial; state = state->previous)
             g_ptr_array_add(backwards, state);
         for (i = backwards->len; i > 0; i--) {
             state = g_ptr_array_index(backwards, i - 1);
