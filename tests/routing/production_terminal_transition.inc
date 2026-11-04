@@ -68,6 +68,7 @@ static int navit_routing_test_terminal_transition(int case_id) {
 
     result = route_turn_graph_path_to_terminals(graph, &profile, a, &path);
     result = result && path.cost == 4 && path.terminal == d
+             && path.terminal_segment == dg && path.terminal_direction == 1
              && path.len == 2 && path.segments[1] == bd;
     if (!result)
         fprintf(stderr, "terminal movement case %d: expected terminal D cost 4; got cost=%d terminal=%s\n",
