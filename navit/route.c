@@ -4369,8 +4369,8 @@ struct object_func route_func = {
 /* Test-only access to static routing internals. */
 #ifdef NAVIT_ROUTING_TEST_HOOKS
 #    include "../tests/routing/benchmark_production.inc"
-#    include "../tests/routing/production_movement_cases.inc"
 #    include "../tests/routing/production_hooks.inc"
+#    include "../tests/routing/production_movement_cases.inc"
 #    include "../tests/routing/production_penalty_cases.inc"
 #    include "../tests/routing/production_state_solver.inc"
 #endif
