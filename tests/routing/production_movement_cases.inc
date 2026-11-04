@@ -38,16 +38,40 @@ static int navit_routing_test_movement_semantics(int case_id) {
     route_graph_add_segment(graph, a, b, &data);
     ab = a->start;
 
-    if (case_id == 13) {
+    if (case_id == 13 || case_id == 16 || case_id == 17) {
         /* Two consecutive graph segments represent the same OSM road.
          * Continuing straight must be legal, even if item IDs match.
          */
         route_graph_add_segment(graph, b, c, &data);
         bc = b->start;
-        result = route_turn_graph_path(graph, &profile, a, c, &path);
-        observed = path.cost;
-        result = result && observed == 2 && path.len == 2
-                 && path.segments[0] == ab && path.segments[1] == bc;
+        if (case_id == 13) {
+            result = route_turn_graph_path(graph, &profile, a, c, &path);
+            observed = path.cost;
+            result = result && observed == 2 && path.len == 2
+                     && path.segments[0] == ab && path.segments[1] == bc;
+        } else {
+            /* Terminal B is nearby with an expensive remainder. Terminal
+             * C is farther but cheaper to finish. The cost must include
+             * each terminal's remaining partial-segment travel.
+             */
+            b->dst_val = 5;
+            c->dst_val = 1;
+            result = route_turn_graph_path_to_terminals(graph, &profile, a, &path);
+            observed = path.cost;
+            result = result && observed == 3 && path.terminal == c
+                     && path.len == 2 && path.segments[1] == bc;
+            if (case_id == 17 && result) {
+                /* A destination-remainder revision changes the selected
+                 * terminal without requiring the road graph to change.
+                 */
+                c->dst_val = 10;
+                route_turn_path_clear(&path);
+                result = route_turn_graph_path_to_terminals(graph, &profile, a, &path);
+                observed = path.cost;
+                result = result && observed == 6 && path.terminal == b
+                         && path.len == 1 && path.segments[0] == ab;
+            }
+        }
     } else if (case_id == 14) {
         /* Forward one-way is valid; the opposite direction is not. */
         result = route_turn_graph_path(graph, &profile, a, b, &path);
