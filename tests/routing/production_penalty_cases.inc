@@ -13,7 +13,7 @@ static int navit_routing_test_penalty_case(int case_id) {
     struct vehicleprofile profile = { 0 };
     struct roadprofile road_profile = { 0 };
     struct route_graph_point *a, *b, *c, *d, *goal, *x = NULL;
-    struct route_graph_segment *ab, *bc, *bd, *cg, *dg;
+    struct route_graph_segment *ab, *bc, *bd, *cg, *dg, *xb = NULL;
     struct route_graph_segment_data data = { 0 };
     struct item road_item = { 0 };
     struct coord coords[] = { { 101, 101 }, { 102, 101 }, { 103, 101 },
@@ -91,6 +91,7 @@ static int navit_routing_test_penalty_case(int case_id) {
         data.flags = AF_SPEED_LIMIT;
         data.len = 1;
         route_graph_add_segment(graph, x, b, &data);
+        xb = x->start;
     }
 
     goal->dst_val = 0;
@@ -132,8 +133,23 @@ static int navit_routing_test_penalty_case(int case_id) {
                      && g_ptr_array_index(path.segments, 0) == ab
                      && g_ptr_array_index(path.segments, 1) == bd
                      && g_ptr_array_index(path.segments, 2) == dg
+                     && g_ptr_array_index(second.segments, 0) == xb
                      && g_ptr_array_index(second.segments, 1) == bc
                      && g_ptr_array_index(second.segments, 2) == cg;
+        if (case_id == 12) {
+            route_turn_path_clear(&path);
+            route_turn_path_clear(&second);
+            result = result
+                     && route_turn_graph_path_from_arrival(graph, &profile, b, ab, 1, goal, &path)
+                     && route_turn_graph_path_from_arrival(graph, &profile, b, xb, 1, goal, &second);
+            if (result)
+                result = path.cost == 3 && second.cost == 2
+                         && path.segments->len == 2 && second.segments->len == 2
+                         && g_ptr_array_index(path.segments, 0) == bd
+                         && g_ptr_array_index(path.segments, 1) == dg
+                         && g_ptr_array_index(second.segments, 0) == bc
+                         && g_ptr_array_index(second.segments, 1) == cg;
+        }
     } else if (fixture_case == 5) {
         /* INCR-006: initially B->D costs 2 versus B->C costs 3.
          * After simultaneous cost changes: B->C costs 2, B->D
