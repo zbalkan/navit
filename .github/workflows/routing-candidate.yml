@@ -31,6 +31,7 @@ jobs:
       - name: Configure routing candidate
         run: cmake -S . -B build-routing -DNAVIT_ROUTING_TEST_HOOKS=ON -DSVG2PNG=OFF -DXPM2PNG=OFF -Dgraphics/qt_qpainter:BOOL=FALSE -Dgui/qml:BOOL=FALSE
       - name: Compile state-expanded candidate
-        run: cmake --build build-routing --target navit_routing_state_test --parallel 2
+        run: cmake --build build-routing --target navit_routing_state_test navit_routing_turn_path_test --parallel 2
       - name: Execute candidate CTest
-        run: ctest --test-dir build-routing --output-on-failure -R '^routing_turn_state_candidate$'
+        run: ctest --test-dir build-routing --output-on-failure -R '^routing_turn_state_(candidate|path)
+
