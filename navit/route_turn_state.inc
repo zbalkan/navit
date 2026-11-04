@@ -46,7 +46,7 @@ static int route_turn_transition_cost(struct vehicleprofile *profile, struct rou
     if (step == INT_MAX)
         return INT_MAX;
     if (previous) {
-        if (item_is_equal(previous->data.item, next->data.item)) {
+        if (previous == next) {
             if (!profile->turn_around_penalty2)
                 return INT_MAX;
             extra = profile->turn_around_penalty2;
