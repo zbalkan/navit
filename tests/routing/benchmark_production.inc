@@ -29,6 +29,7 @@ static int routing_benchmark_measure(struct route_graph *graph,
                                      struct vehicleprofile *profile,
                                      struct route_graph_point *start,
                                      struct route_graph_point *goal,
+                                     struct route_graph_point *changed_start,
                                      const char *scenario, int n, int edges,
                                      int repetition, const char *operation,
                                      int expected, int reverse_order, int emit) {
@@ -43,6 +44,9 @@ static int routing_benchmark_measure(struct route_graph *graph,
         which = reverse_order ? 1 - order : order;
         begin = g_get_monotonic_time();
         if (which == 0) {
+            /* Measure notification and repair together for changed edges. */
+            if (changed_start)
+                route_graph_point_update(profile, changed_start, graph->heap);
             route_graph_compute_shortest_path(graph, profile, NULL);
             cost[which] = start->value;
         } else {
@@ -55,7 +59,8 @@ static int routing_benchmark_measure(struct route_graph *graph,
     }
 
     good = cost[0] == expected && cost[1] == expected;
-    if (emit) {
+    /* Even a warm-up mismatch must leave a machine-readable failure row. */
+    if (emit || !good) {
         printf("%s,%d,%d,%d,legacy,%s,%lld,%d,%d,%s\n",
                scenario, n, edges, repetition, operation, elapsed[0], cost[0],
                expected, cost[0] == expected ? "pass" : "fail");
@@ -126,25 +131,23 @@ int navit_routing_benchmark(int n, int repeats, int shortcuts) {
         points[n - 1]->el = fh_insertkey(graph->heap, 0, points[n - 1]);
 
         failed |= routing_benchmark_measure(graph, &profile, points[0], points[n - 1],
-                                            scenario, n, edges, repetition, "full",
+                                            NULL, scenario, n, edges, repetition, "full",
                                             routing_benchmark_oracle(n, shortcuts, 10),
                                             reverse_order, emit);
         if (failed)
             break;
 
         changed->data.len = 30;
-        route_graph_point_update(&profile, changed->start, graph->heap);
         failed |= routing_benchmark_measure(graph, &profile, points[0], points[n - 1],
-                                            scenario, n, edges, repetition, "increase",
+                                            changed->start, scenario, n, edges, repetition, "increase",
                                             routing_benchmark_oracle(n, shortcuts, 30),
                                             reverse_order, emit);
         if (failed)
             break;
 
         changed->data.len = 10;
-        route_graph_point_update(&profile, changed->start, graph->heap);
         failed |= routing_benchmark_measure(graph, &profile, points[0], points[n - 1],
-                                            scenario, n, edges, repetition, "decrease",
+                                            changed->start, scenario, n, edges, repetition, "decrease",
                                             routing_benchmark_oracle(n, shortcuts, 10),
                                             reverse_order, emit);
         if (failed)
