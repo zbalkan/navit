@@ -4365,5 +4365,6 @@ struct object_func route_func = {
 
 /* Test-only access to static routing internals; production builds do not compile this. */
 #ifdef NAVIT_ROUTING_TEST_HOOKS
+#    include "../tests/routing/production_penalty_cases.inc"
 #    include "../tests/routing/production_hooks.inc"
 #endif
