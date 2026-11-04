@@ -982,6 +982,7 @@ if (NOT NAVIT_DEPENDENCY_ERROR)
 endif(NOT NAVIT_DEPENDENCY_ERROR)
 
 option(NAVIT_ROUTING_TEST_HOOKS "Build deterministic tests against production routing internals" OFF)
+option(NAVIT_ROUTING_TURN_SHADOW "Run non-authoritative movement-state search alongside route extraction" OFF)
 if(NAVIT_ROUTING_TEST_HOOKS)
     enable_testing()
 endif()
