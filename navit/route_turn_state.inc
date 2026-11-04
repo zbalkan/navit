@@ -1,19 +1,16 @@
 /*
- * Experimental exact shortest-path search over directed incoming movements.
+ * Directed-movement shortest paths on Navit's production route graph.
  *
- * This is linked into the actual route.c translation unit, rather than the
- * independent test oracle. It is not used by route_path_new() yet: the
- * existing destination-candidate, waypoint and route-map APIs require
- * separate integration and regression coverage.
- *
- * Each state records the road segment used to arrive at a graph point.
- * Transition penalties depend only on that incoming segment and on the
- * next movement, not on a mutable point->seg selected by another route.
+ * EXPERIMENTAL: not wired into route_path_new() or its destination
+ * candidates. Keep algorithmic validation separate from integration.
+ * This uses Navit's existing fibheap, GHashTable and g_new/g_free
+ * abstractions, without GLib array types unavailable on some targets.
  */
 struct route_turn_state {
     struct route_graph_point *point;
     struct route_graph_segment *incoming;
     struct route_turn_state *previous;
+    struct route_turn_state *allocated_next;
     struct fibheap_el *element;
     int cost;
     int settled;
@@ -21,25 +18,21 @@ struct route_turn_state {
 };
 
 struct route_turn_path {
-    GPtrArray *segments;
-    GArray *directions;
+    struct route_graph_segment **segments;
+    int *directions;
+    unsigned int len;
     int cost;
 };
 
 static void route_turn_path_clear(struct route_turn_path *path) {
-    if (path->segments)
-        g_ptr_array_free(path->segments, TRUE);
-    if (path->directions)
-        g_array_free(path->directions, TRUE);
+    g_free(path->segments);
+    g_free(path->directions);
     path->segments = NULL;
     path->directions = NULL;
+    path->len = 0;
     path->cost = INT_MAX;
 }
 
-/* A state is uniquely identified by its incoming segment and direction.
- * All states use actual graph point pointers; restriction clones remain
- * distinct, including when their coordinates happen to be identical.
- */
 static struct route_turn_state *route_turn_state_find(GHashTable *forward, GHashTable *reverse,
                                                        struct route_graph_segment *s, int direction) {
     return g_hash_table_lookup(direction > 0 ? forward : reverse, s);
@@ -69,30 +62,20 @@ static int route_turn_transition_cost(struct vehicleprofile *profile, struct rou
     return step + extra;
 }
 
-/*
- * Find a graph-vertex-to-vertex path. The graph profile is assumed to
- * have nonnegative traversal and transition costs. Uses a Fibonacci heap
- * with one entry per inconsistent candidate, and scans incident edges
- * only, giving the standard sparse Dijkstra exploration pattern.
- *
- * out is always initialized. The caller owns its path arrays on success.
- * This function never updates the production graph's value/rhs/seg/heap.
- */
 static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct vehicleprofile *profile,
                                               struct route_graph_point *start,
                                               struct route_graph_segment *incoming, int incoming_direction,
                                               struct route_graph_point *goal, struct route_turn_path *out) {
-    GHashTable *forward = NULL, *reverse = NULL;
-    GPtrArray *all = NULL;
-    struct fibheap *heap = NULL;
+    GHashTable *forward, *reverse;
+    struct route_turn_state *allocated = NULL, *initial, *state, *next, *winner = NULL;
+    struct fibheap *heap;
     struct route_graph_segment *s;
-    struct route_turn_state *state, *next, *winner = NULL;
-    struct route_turn_state *initial;
     int direction, step, candidate;
-    unsigned int i;
+    unsigned int i, length = 0;
 
     out->segments = NULL;
     out->directions = NULL;
+    out->len = 0;
     out->cost = INT_MAX;
     if (!graph || !profile || !start || !goal || profile->through_traffic_penalty < 0
         || profile->turn_around_penalty2 < 0 || (incoming && incoming_direction != 1 && incoming_direction != -1))
@@ -100,7 +83,6 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
 
     forward = g_hash_table_new(g_direct_hash, g_direct_equal);
     reverse = g_hash_table_new(g_direct_hash, g_direct_equal);
-    all = g_ptr_array_new_with_free_func(g_free);
     heap = fh_makekeyheap();
 
     for (s = graph->route_segments; s; s = s->next) {
@@ -111,16 +93,18 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
         state->incoming = s;
         state->direction = 1;
         state->cost = INT_MAX;
+        state->allocated_next = allocated;
+        allocated = state;
         g_hash_table_insert(forward, s, state);
-        g_ptr_array_add(all, state);
 
         state = g_new0(struct route_turn_state, 1);
         state->point = s->start;
         state->incoming = s;
         state->direction = -1;
         state->cost = INT_MAX;
+        state->allocated_next = allocated;
+        allocated = state;
         g_hash_table_insert(reverse, s, state);
-        g_ptr_array_add(all, state);
     }
 
     if (incoming) {
@@ -130,10 +114,13 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
     } else {
         initial = g_new0(struct route_turn_state, 1);
         initial->point = start;
-        g_ptr_array_add(all, initial);
+        initial->allocated_next = allocated;
+        allocated = initial;
     }
+
     initial->cost = 0;
     initial->element = fh_insertkey(heap, 0, initial);
+
     while ((state = fh_extractmin(heap))) {
         state->element = NULL;
         if (state->settled)
@@ -170,33 +157,34 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
     }
 
     if (winner) {
-        GPtrArray *backwards = g_ptr_array_new();
-        out->segments = g_ptr_array_new();
-        out->directions = g_array_new(FALSE, FALSE, sizeof(int));
         out->cost = winner->cost;
         for (state = winner; state && state != initial; state = state->previous)
-            g_ptr_array_add(backwards, state);
-        for (i = backwards->len; i > 0; i--) {
-            state = g_ptr_array_index(backwards, i - 1);
-            g_ptr_array_add(out->segments, state->incoming);
-            g_array_append_val(out->directions, state->direction);
+            length++;
+        out->len = length;
+        if (length) {
+            out->segments = g_new0(struct route_graph_segment *, length);
+            out->directions = g_new0(int, length);
         }
-        g_ptr_array_free(backwards, TRUE);
+        i = length;
+        for (state = winner; state && state != initial; state = state->previous) {
+            i--;
+            out->segments[i] = state->incoming;
+            out->directions[i] = state->direction;
+        }
     }
 
 cleanup:
-    /* Discard pending heap elements before freeing their state objects. */
     fh_deleteheap(heap);
     g_hash_table_destroy(forward);
     g_hash_table_destroy(reverse);
-    g_ptr_array_free(all, TRUE);
+    while (allocated) {
+        state = allocated->allocated_next;
+        g_free(allocated);
+        allocated = state;
+    }
     return winner != NULL;
 }
 
-/* A route beginning at a junction has no incoming movement. A moving vehicle
- * already traversing a road can instead use route_turn_graph_path_from_arrival()
- * to preserve the incoming movement context, without charging it twice.
- */
 static int route_turn_graph_path(struct route_graph *graph, struct vehicleprofile *profile,
                                  struct route_graph_point *start, struct route_graph_point *goal,
                                  struct route_turn_path *out) {
