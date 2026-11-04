@@ -19,6 +19,8 @@ struct route_turn_state {
 
 struct route_turn_path {
     struct route_graph_point *terminal;
+    struct route_graph_segment *terminal_segment;
+    int terminal_direction;
     struct route_graph_segment **segments;
     int *directions;
     unsigned int len;
@@ -32,6 +34,8 @@ static void route_turn_path_clear(struct route_turn_path *path) {
     path->directions = NULL;
     path->len = 0;
     path->terminal = NULL;
+    path->terminal_segment = NULL;
+    path->terminal_direction = 0;
     path->cost = INT_MAX;
 }
 
@@ -110,6 +114,8 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
     out->directions = NULL;
     out->len = 0;
     out->terminal = NULL;
+    out->terminal_segment = NULL;
+    out->terminal_direction = 0;
     out->cost = INT_MAX;
     if (!graph || !profile || !start || profile->through_traffic_penalty < 0
         || profile->turn_around_penalty2 < 0 || (incoming && incoming_direction != 1 && incoming_direction != -1))
@@ -203,6 +209,10 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
     if (winner) {
         out->cost = best_terminal;
         out->terminal = winner->point;
+        if (!goal && winner->point->dst_seg) {
+            out->terminal_segment = winner->point->dst_seg;
+            out->terminal_direction = winner->point == out->terminal_segment->start ? 1 : -1;
+        }
         for (state = winner; state && state != initial; state = state->previous)
             length++;
         out->len = length;
