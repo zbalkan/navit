@@ -2,12 +2,14 @@
 #include <stdio.h>
 
 int main(void) {
-  const int cases[] = {1, 2, 3};
+  const int cases[] = {1, 2, 3, 4, 5};
+  int failures = 0;
   unsigned int i;
   for (i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
     if (navit_routing_test_case(cases[i]) != 0)
-      return 1;
-    printf("PASS production routing case %d\n", cases[i]);
+      ++failures;
+    else
+      printf("PASS production routing case %d\n", cases[i]);
   }
-  return 0;
+  return failures ? 1 : 0;
 }
