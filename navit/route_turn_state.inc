@@ -18,6 +18,7 @@ struct route_turn_state {
 };
 
 struct route_turn_path {
+    struct route_graph_point *terminal;
     struct route_graph_segment **segments;
     int *directions;
     unsigned int len;
@@ -30,6 +31,7 @@ static void route_turn_path_clear(struct route_turn_path *path) {
     path->segments = NULL;
     path->directions = NULL;
     path->len = 0;
+    path->terminal = NULL;
     path->cost = INT_MAX;
 }
 
@@ -70,14 +72,15 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
     struct route_turn_state *allocated = NULL, *initial, *state, *next, *winner = NULL;
     struct fibheap *heap;
     struct route_graph_segment *s;
-    int direction, step, candidate;
+    int direction, step, candidate, terminal_cost, best_terminal = INT_MAX;
     unsigned int i, length = 0;
 
     out->segments = NULL;
     out->directions = NULL;
     out->len = 0;
+    out->terminal = NULL;
     out->cost = INT_MAX;
-    if (!graph || !profile || !start || !goal || profile->through_traffic_penalty < 0
+    if (!graph || !profile || !start || profile->through_traffic_penalty < 0
         || profile->turn_around_penalty2 < 0 || (incoming && incoming_direction != 1 && incoming_direction != -1))
         return 0;
 
@@ -126,10 +129,20 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
         if (state->settled)
             continue;
         state->settled = 1;
-        if (state->point == goal) {
-            winner = state;
+        /* Dijkstra is nonnegative. No unsettled point can improve a
+         * terminal whose total distance is already <= this distance.
+         */
+        if (state->cost >= best_terminal)
             break;
+        terminal_cost = goal ? (state->point == goal ? 0 : INT_MAX) : state->point->dst_val;
+        if (terminal_cost != INT_MAX && terminal_cost >= 0
+            && state->cost <= INT_MAX - terminal_cost
+            && state->cost + terminal_cost < best_terminal) {
+            winner = state;
+            best_terminal = state->cost + terminal_cost;
         }
+        if (goal && winner)
+            break;
 
         for (direction = 1; direction >= -1; direction -= 2) {
             s = direction > 0 ? state->point->start : state->point->end;
@@ -157,7 +170,8 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
     }
 
     if (winner) {
-        out->cost = winner->cost;
+        out->cost = best_terminal;
+        out->terminal = winner->point;
         for (state = winner; state && state != initial; state = state->previous)
             length++;
         out->len = length;
@@ -189,4 +203,15 @@ static int route_turn_graph_path(struct route_graph *graph, struct vehicleprofil
                                  struct route_graph_point *start, struct route_graph_point *goal,
                                  struct route_turn_path *out) {
     return route_turn_graph_path_from_arrival(graph, profile, start, NULL, 0, goal, out);
+}
+
+/* Destination metadata from route_graph_init() may identify multiple
+ * graph points with different remaining partial-road costs. This
+ * computes the cheapest junction-to-terminal cost and returns the
+ * chosen terminal point; route extraction still has to append the
+ * terminal's dst_seg partial road.
+ */
+static int route_turn_graph_path_to_terminals(struct route_graph *graph, struct vehicleprofile *profile,
+                                              struct route_graph_point *start, struct route_turn_path *out) {
+    return route_turn_graph_path_from_arrival(graph, profile, start, NULL, 0, NULL, out);
 }
