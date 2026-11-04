@@ -9,8 +9,8 @@ static int navit_routing_test_partial_start(int case_id);
 static int navit_routing_test_terminal_transition(int case_id);
 
 int navit_routing_test_case(int case_id) {
-    if (case_id == 26)
-        return navit_routing_test_terminal_transition();
+    if (case_id >= 26 && case_id <= 28)
+        return navit_routing_test_terminal_transition(case_id);
     if (case_id >= 19 && case_id <= 25)
         return navit_routing_test_partial_start(case_id);
     if (case_id >= 13 && case_id <= 18)
