@@ -10,7 +10,7 @@ int main(void) {
   int failures = 0;
 
   printf("scenario,vertices,edges,repeat,implementation,operation,elapsed_ns,"
-         "cost\n");
+         "cost,oracle_cost,correctness\n");
   for (shortcuts = 0; shortcuts <= 1; shortcuts++)
     for (i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++)
       failures |= navit_routing_benchmark(sizes[i], 25, shortcuts);
