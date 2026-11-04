@@ -2,7 +2,7 @@ name: Routing correctness oracle
 
 on:
   push:
-    branches: [trunk, 'test/**']
+    branches: [trunk, 'test/**', 'feat/routing-*']
     paths:
       - 'tests/routing/**'
       - '.github/workflows/routing-oracle.yml'
