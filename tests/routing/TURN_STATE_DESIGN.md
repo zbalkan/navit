@@ -98,6 +98,33 @@ and must not assume each edge-cost event is local in its consequences.
 * Long predecessor chains and symmetric/oneway restrictions.
 * Existing geographic routing-QA regression cases.
 
+## Implemented stage-A candidate (not production routing)
+
+A test-only movement-state Dijkstra prototype now operates on
+`route_graph_segment` objects in
+`tests/routing/production_state_solver.inc`. It calls the existing
+production `route_value_seg()` for road traversal costs and adds
+through-traffic and U-turn transition costs using the incoming
+movement identity.
+
+The isolated `navit_routing_state_test` target checks CORE-004,
+INCR-006, and CORE-004B through cases 7, 8, and 9. It passed CTest
+in GitHub Actions run 41810323519 (commit `12cdce2376348c58ed6e9f3ba092e065f415bac8`).
+The independent Python reference is still a separate implementation.
+
+The prototype only returns minimum cost for a junction destination.
+It does **not** emit a movement-specific route, handle Navit's
+terminal partial-road candidates or multi-waypoint extraction, or
+update the production `value`/`rhs` structure. It does not
+replace the existing LPA* engine. It uses deliberately simple
+linear scans with superlinear/cubic worst-case work and is **not**
+suitable for production use without a separate implementation review.
+
+Production Red cases 4, 5, and 6 remain expected failures, regardless
+of the isolated candidate passing. The production integration phase
+must explicitly handle start-state selection, path extraction, graph
+clones, metric revisions, and incremental invalidation.
+
 ## Development sequence
 
 1. **Red**: Preserve the reproducible compiled production failures and
