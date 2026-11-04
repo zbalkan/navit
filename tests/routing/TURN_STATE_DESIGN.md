@@ -265,6 +265,33 @@ until those conditions are covered and production semantics are
 fully wired. The comparison benchmark is a separate executable
 and does not enable the new engine as the default router.
 
+## Stage B4: Destination transition correctness
+
+The destination terminal is an **outgoing partial movement**, not just a
+scalar `dst_val`. For each state reaching a destination-candidate
+junction, the search now checks the terminal segment's permitted
+direction and adds any transition penalty between the incoming road
+and that partial destination road. The terminal's remaining traversal
+time is already included in `dst_val`; it is not charged twice.
+
+Compiled production-graph regressions 26–28 cover: a restricted road
+ending at an unrestricted partial destination (through-traffic exit
+penalty), an illegal immediate reversal onto the terminal segment,
+and a terminal segment blocked by a one-way restriction. These cases
+require selecting an alternative terminal with total cost 4 rather
+than the superficially cheaper but illegal/penalized partial
+destination at B.
+
+For downstream route extraction, the candidate `route_turn_path`
+preserves `terminal`, `terminal_segment`, and `terminal_direction`
+separately from its traversed full segments. These fields specify the
+selected final partial-road movement. They do not yet create or validate
+the actual destination geometry in `route_path_new()`.
+
+The original point-based production Red cases remain failures.
+This candidate fix must not be represented as a repair of Navit's
+default router or its incremental propagation.
+
 ## Development sequence
 
 1. **Red**: Preserve the reproducible compiled production failures and
