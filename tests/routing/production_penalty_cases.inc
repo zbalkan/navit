@@ -5,6 +5,9 @@
  * Their oracle costs are independently derived from turn-aware states.
  * No routing logic is modified in order to make these tests pass.
  */
+static int navit_routing_test_stateful_cost(struct route_graph *graph, struct vehicleprofile *profile,
+                                            struct route_graph_point *start, struct route_graph_point *goal);
+
 static int navit_routing_test_penalty_case(int case_id) {
     struct route_graph *graph = g_new0(struct route_graph, 1);
     struct vehicleprofile profile = { 0 };
@@ -20,6 +23,7 @@ static int navit_routing_test_penalty_case(int case_id) {
     int initial_successor_is_d = 0;
     int final_successor_is_c = 0;
     int x_cost = -1;
+    int fixture_case = case_id > 6 ? case_id - 3 : case_id;
 
     graph->heap = fh_makekeyheap();
     profile.roadprofile_hash = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -33,7 +37,7 @@ static int navit_routing_test_penalty_case(int case_id) {
     c = route_graph_add_point(graph, &coords[2]);
     d = route_graph_add_point(graph, &coords[3]);
     goal = route_graph_add_point(graph, &coords[4]);
-    if (case_id == 6)
+    if (fixture_case == 6)
         x = route_graph_add_point(graph, &coords[5]);
 
     road_item.type = type_street_0;
@@ -50,7 +54,7 @@ static int navit_routing_test_penalty_case(int case_id) {
     /* Restricted continuation B->D. */
     road_item.id_lo = 102;
     data.flags = AF_SPEED_LIMIT | AF_THROUGH_TRAFFIC_LIMIT;
-    data.len = (case_id == 4 || case_id == 6) ? 2 : 1;
+    data.len = (fixture_case == 4 || fixture_case == 6) ? 2 : 1;
     route_graph_add_segment(graph, b, d, &data);
     bd = b->start;
 
@@ -64,7 +68,7 @@ static int navit_routing_test_penalty_case(int case_id) {
     bc = b->start;
 
     road_item.id_lo = 104;
-    data.len = (case_id == 4 || case_id == 6) ? 1 : 2;
+    data.len = (fixture_case == 4 || fixture_case == 6) ? 1 : 2;
     route_graph_add_segment(graph, c, goal, &data);
     cg = c->start;
 
@@ -78,7 +82,7 @@ static int navit_routing_test_penalty_case(int case_id) {
     route_graph_add_segment(graph, d, goal, &data);
     dg = d->start;
 
-    if (case_id == 6) {
+    if (fixture_case == 6) {
         /* A second unrestricted arrival at B; optimal continuation is
          * BC rather than BD. A single B->seg cannot encode both.
          */
@@ -93,31 +97,31 @@ static int navit_routing_test_penalty_case(int case_id) {
     goal->el = fh_insertkey(graph->heap, 0, goal);
     route_graph_compute_shortest_path(graph, &profile, NULL);
 
-    if (case_id == 4) {
+    if (fixture_case == 4) {
         /* CORE-004 independent turn-aware oracle:
          * AB(1) + BD(2) + DG(1) = 4.
          * AB(1) + penalty(100) + BC(1) + CG(1) = 103.
          * A point-only choice at B instead favors the BC suffix.
          */
         expected = 4;
-        observed = a->value;
-        result = b->seg == bc && observed == expected
+        observed = case_id == 7 ? navit_routing_test_stateful_cost(graph, &profile, a, goal) : a->value;
+        result = observed == expected && (case_id == 7 || b->seg == bc)
                  && a->value == a->rhs && !fh_min(graph->heap);
-    } else if (case_id == 6) {
+    } else if (fixture_case == 6) {
         expected = 4;
-        observed = a->value;
-        x_cost = x->value;
+        observed = case_id == 9 ? navit_routing_test_stateful_cost(graph, &profile, a, goal) : a->value;
+        x_cost = case_id == 9 ? navit_routing_test_stateful_cost(graph, &profile, x, goal) : x->value;
         result = observed == expected && x_cost == 3
                  && a->value == a->rhs && x->value == x->rhs
                  && !fh_min(graph->heap);
-    } else if (case_id == 5) {
+    } else if (fixture_case == 5) {
         /* INCR-006: initially B->D costs 2 versus B->C costs 3.
          * After simultaneous cost changes: B->C costs 2, B->D
          * costs 3. B's g stays at 2 while its chosen suffix changes.
          * The incoming restricted AB should instead use BD, with
          * complete route cost AB(1)+BD(1)+DG(2)=4.
          */
-        initial_cost = a->value;
+        initial_cost = case_id == 8 ? navit_routing_test_stateful_cost(graph, &profile, a, goal) : a->value;
         initial_successor_is_d = b->seg == bd;
         cg->data.len = 1;
         dg->data.len = 2;
@@ -126,7 +130,7 @@ static int navit_routing_test_penalty_case(int case_id) {
         route_graph_compute_shortest_path(graph, &profile, NULL);
         final_successor_is_c = b->seg == bc;
         expected = 4;
-        observed = a->value;
+        observed = case_id == 8 ? navit_routing_test_stateful_cost(graph, &profile, a, goal) : a->value;
         result = initial_cost == 3 && initial_successor_is_d && final_successor_is_c
                  && b->value == 2 && observed == expected
                  && a->value == a->rhs && !fh_min(graph->heap);
