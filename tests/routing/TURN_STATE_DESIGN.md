@@ -164,6 +164,50 @@ Before any production switch, implement the following:
 The existing production Red cases are intentionally unchanged. They
 must not be considered fixed because a separate candidate passes.
 
+## Subsequent correctness gates
+
+The portable state solver now represents each returned path as owned
+arrays of segment pointers and traversal directions. It can select a
+destination from several `route_graph_point::dst_val` terminal candidates
+and returns the selected terminal junction. The costs include the
+remaining partial-road terminal cost. It does **not** yet append the
+corresponding `dst_seg` geometry to a normal `route_path`.
+
+Production-graph semantic tests under
+`routing_turn_state_movement` now check:
+
+* Continuity across two distinct segment objects belonging to the
+  same street item. A repeated item ID must not itself be treated as
+  an immediate U-turn.
+* Forward-versus-reverse legality on an actual one-way segment.
+* Rejection of immediate reversal of the same incoming segment when
+  the profile disallows it.
+* Weighted destination candidates, including recomputation when
+  their terminal costs change.
+* Insertion and removal of a real traffic-distortion item, verifying
+  correct state-aware *full recomputation* at each graph revision.
+
+These tests are intentionally not a claim of incremental LPA* repair.
+The candidate still computes a fresh shortest-path search after each
+update. Using the existing vertex-only `g/rhs` for incremental
+movement-aware costs would reintroduce the original correctness bug.
+
+### Production integration blockers
+
+The current test configuration omits the hard cases in
+`route_path_new()`: start matching on a partial first segment,
+destination projection and partial terminal geometry, turnaround
+recursion, and waypoint accumulation. Restricted-road graph clones
+also need geographic fixtures before their direction semantics are
+claimed equivalent to the original engine.
+
+The separate benchmark pipeline is **measurement infrastructure**.
+Its compared operations differ: original Navit repairs existing
+destination-rooted values incrementally, while the state candidate
+recomputes a route from the start. No performance comparison is a
+production acceptance gate until both engines satisfy the same
+routing semantics and end-to-end tests.
+
 ## Development sequence
 
 1. **Red**: Preserve the reproducible compiled production failures and
