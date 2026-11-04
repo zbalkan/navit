@@ -125,6 +125,45 @@ of the isolated candidate passing. The production integration phase
 must explicitly handle start-state selection, path extraction, graph
 clones, metric revisions, and incremental invalidation.
 
+## Implemented Stage B1: Explicit path selection (test-only)
+
+`navit/route_turn_state.inc` implements a movement-aware graph
+shortest-path search using Navit's actual segment costs, directional
+checks, and Fibonacci heap. It records the predecessor **state**, then
+reconstructs an ordered series of segment pointers and travel
+directions. It supports a junction start with no previous road, or an
+already-arrived state `(junction, incoming segment, direction)`.
+The incoming segment is not charged or emitted twice.
+
+The isolated tests `routing_turn_state_candidate` and
+`routing_turn_state_path` check the costs and movement-specific paths
+for CORE-004, INCR-006, and CORE-004B. The arrival-context test also
+checks two distinct paths starting from the same junction with
+different preceding segments.
+
+**This is not a production Green result.** The new helper is compiled
+only with `NAVIT_ROUTING_TEST_HOOKS`. Navit's normal path extraction
+still uses `route_path_new()` and `point->seg`. The helper currently
+uses GLib array types unavailable in Navit's non-GLib configurations,
+so enabling it in general builds would break supported targets.
+
+Before any production switch, implement the following:
+
+* Replace the GLib-only path representation with platform-compatible
+  containers or suitable project abstractions.
+* Support start positions on a partial road segment and multiple
+  destination candidates with nonzero partial-road terminal costs.
+* Express waypoints and temporary turnaround penalties correctly.
+* Preserve restriction-clone identities and real map-path geometries.
+* Integrate a state-aware route extraction path without falling back
+  to the point-global successor.
+* Replace full per-query search with a correct incremental state
+  update strategy, or explicitly justify initial full recomputation.
+* Run geographic regression tests and measure latency and memory.
+
+The existing production Red cases are intentionally unchanged. They
+must not be considered fixed because a separate candidate passes.
+
 ## Development sequence
 
 1. **Red**: Preserve the reproducible compiled production failures and
