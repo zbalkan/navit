@@ -7,6 +7,7 @@ int main(void) {
   unsigned int i;
   int failures = 0;
   for (i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
+    fprintf(stderr, "RUN movement-state semantics %d\n", cases[i]);
     if (navit_routing_test_case(cases[i]) != 0)
       failures++;
     else
