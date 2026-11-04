@@ -265,8 +265,7 @@ static int route_value_seg(struct vehicleprofile *profile, struct route_graph_po
 static void route_graph_init(struct route_graph *this, struct route_info *dst, struct vehicleprofile *profile);
 static void route_graph_reset(struct route_graph *this);
 #ifdef NAVIT_ROUTING_TURN_SHADOW
-static void route_turn_shadow_route(struct route_graph *graph, struct vehicleprofile *profile,
-                                    struct route_info *pos);
+static void route_turn_shadow_route(struct route_graph *graph, struct vehicleprofile *profile, struct route_info *pos);
 #endif
 
 /**
@@ -4392,17 +4391,16 @@ struct object_func route_func = {
  * route. This does not yet handle direct travel between two positions on
  * the same segment and is therefore not an acceptance oracle.
  */
-static void route_turn_shadow_route(struct route_graph *graph, struct vehicleprofile *profile,
-                                    struct route_info *pos) {
+static void route_turn_shadow_route(struct route_graph *graph, struct vehicleprofile *profile, struct route_info *pos) {
     struct route_graph_segment *s = NULL;
-    struct route_turn_path candidate = { 0 };
+    struct route_turn_path candidate = {0};
     int best = INT_MAX;
     int attempts = 0;
 
     while ((s = route_graph_get_segment(graph, pos->street, s))) {
         attempts++;
-        if (route_turn_plan_from_segment(graph, profile, s, pos->percent,
-                                         pos->street_direction, &candidate) && candidate.cost < best)
+        if (route_turn_plan_from_segment(graph, profile, s, pos->percent, pos->street_direction, &candidate)
+            && candidate.cost < best)
             best = candidate.cost;
         route_turn_path_clear(&candidate);
     }
