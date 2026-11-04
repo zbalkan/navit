@@ -208,6 +208,35 @@ recomputes a route from the start. No performance comparison is a
 production acceptance gate until both engines satisfy the same
 routing semantics and end-to-end tests.
 
+## Stage B2: Projected start segments and terminal candidates
+
+The candidate now has `route_turn_plan_from_segment()`, which takes
+a matched starting segment, a fractional start position (0–100), and
+the current street direction. It compares legal forward and reverse
+departures, charges only the remaining portion of the first segment,
+preserves the incoming movement through the state search, and
+includes a selected terminal's remaining partial-road cost.
+
+The additional C regression cases establish:
+
+* 13: Continuation across distinct segments that share one street ID.
+* 14: Correct one-way forward/reverse filtering.
+* 15: Disallowed reversal of the exact incoming segment.
+* 16–17: Weighted destination selection, including a terminal-cost revision.
+* 18: Full recomputation after an actual Navit traffic distortion and removal.
+* 19–21: Partial start, one-way departure, and initial turnaround penalties.
+
+This is a **candidate route plan**, not a completed route object.
+The initial matched segment and selected terminal are represented,
+but the output is not yet connected to `route_path_add_item_from_graph()`.
+In particular, a destination partway along the same road as the
+starting position needs a direct-on-segment case. Real map geometry,
+multi-waypoint lifecycle and restriction clones still require tests.
+
+A fresh state-aware graph search is run after a cost change. Case 18
+proves this recomputation path, not incremental movement-state repair.
+The legacy production Red cases remain unchanged.
+
 ## Development sequence
 
 1. **Red**: Preserve the reproducible compiled production failures and
