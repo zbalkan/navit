@@ -69,7 +69,19 @@ static int navit_routing_test_terminal_transition(int case_id) {
     result = route_turn_graph_path_to_terminals(graph, &profile, a, &path);
     result = result && path.cost == 4 && path.terminal == d
              && path.terminal_segment == dg && path.terminal_direction == 1
-             && path.len == 2 && path.segments[1] == bd;
+             && path.len == 2 && path.segments[1] == bd
+             && route_turn_path_is_contiguous(&path, a);
+    if (result) {
+        /* The geometry adapter must never accept a backwards first
+         * movement or a terminal direction inconsistent with its point.
+         */
+        path.directions[0] = -path.directions[0];
+        result = !route_turn_path_is_contiguous(&path, a);
+        path.directions[0] = -path.directions[0];
+        path.terminal_direction = -1;
+        result = result && !route_turn_path_is_contiguous(&path, a);
+        path.terminal_direction = 1;
+    }
     if (!result)
         fprintf(stderr, "terminal movement case %d: expected terminal D cost 4; got cost=%d terminal=%s\n",
                 case_id, path.cost, path.terminal == b ? "B" : path.terminal == d ? "D" : "other");
