@@ -4409,8 +4409,8 @@ static void route_turn_shadow_route(struct route_graph *graph, struct vehiclepro
         if (dst && dst->street && item_is_equal(pos->street->item, dst->street->item)) {
             while ((terminal_segment = route_graph_get_segment(graph, dst->street, terminal_segment))) {
                 if (terminal_segment == s
-                    && route_turn_plan_direct_on_segment(profile, s, pos->percent, dst->percent,
-                                                         pos->street_direction, &candidate)
+                    && route_turn_plan_direct_on_segment(profile, s, pos->percent, dst->percent, pos->street_direction,
+                                                         &candidate)
                     && candidate.cost < best)
                     best = candidate.cost;
                 route_turn_path_clear(&candidate);
