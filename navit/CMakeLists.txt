@@ -140,6 +140,11 @@ if(NAVIT_ROUTING_TEST_HOOKS)
         ${PROJECT_SOURCE_DIR}/tests/routing)
     target_link_libraries(navit_routing_turn_path_test PRIVATE ${NAVIT_LIBNAME})
     add_test(NAME routing_turn_state_path COMMAND navit_routing_turn_path_test)
+    add_executable(navit_routing_benchmark
+        ${PROJECT_SOURCE_DIR}/tests/routing/test_benchmark.c)
+    target_include_directories(navit_routing_benchmark PRIVATE
+        ${PROJECT_SOURCE_DIR}/tests/routing)
+    target_link_libraries(navit_routing_benchmark PRIVATE ${NAVIT_LIBNAME})
 endif()
 
 add_custom_command(
