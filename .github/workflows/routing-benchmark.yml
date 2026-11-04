@@ -9,6 +9,7 @@ on:
       - 'tests/routing/production_hooks.h'
       - 'navit/route.c'
       - 'navit/route_turn_state.inc'
+      - 'navit/route_turn_plan.inc'
       - 'navit/CMakeLists.txt'
       - '.github/workflows/routing-benchmark.yml'
   workflow_dispatch:
