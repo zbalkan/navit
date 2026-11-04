@@ -6,7 +6,7 @@ static int navit_routing_test_penalty_case(int case_id);
 static int navit_routing_test_movement_semantics(int case_id);
 
 int navit_routing_test_case(int case_id) {
-    if (case_id >= 13 && case_id <= 15)
+    if (case_id >= 13 && case_id <= 17)
         return navit_routing_test_movement_semantics(case_id);
     if (case_id >= 4 && case_id <= 12)
         return navit_routing_test_penalty_case(case_id);
