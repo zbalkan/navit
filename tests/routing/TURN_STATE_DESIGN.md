@@ -225,12 +225,13 @@ The additional C regression cases establish:
 * 16–17: Weighted destination selection, including a terminal-cost revision.
 * 18: Full recomputation after an actual Navit traffic distortion and removal.
 * 19–21: Partial start, one-way departure, and initial turnaround penalties.
+* 22–25: Direct travel between two positions on the same segment, including reverse one-way rejection and zero-distance travel.
 
 This is a **candidate route plan**, not a completed route object.
 The initial matched segment and selected terminal are represented,
 but the output is not yet connected to `route_path_add_item_from_graph()`.
-In particular, a destination partway along the same road as the
-starting position needs a direct-on-segment case. Real map geometry,
+A direct-on-segment candidate is now implemented and exercised by cases
+22–25, but its geometry and route lifecycle remain unconnected. Real map geometry,
 multi-waypoint lifecycle and restriction clones still require tests.
 
 A fresh state-aware graph search is run after a cost change. Case 18
@@ -252,10 +253,10 @@ not currently execute a geographic route through that function.
 Thus shadow compilation is a **necessary integration check**, not
 proof of real-map route correctness.
 
-Limitations remain substantial: direct travel between two positions
-on the same segment, destination-geometry projection, waypoint
-accumulation, restriction clones, and dynamic graph changes during
-route construction all require end-to-end validation. The candidate
+Limitations remain substantial: the shadow evaluates direct same-segment
+travel when the matched source and destination segments are identical,
+but destination-geometry projection, waypoint accumulation, restriction
+clones, and concurrent graph changes still require end-to-end validation. The candidate
 cost does not replace the visible route, ETA, or navigation
 instructions.
 
