@@ -33,5 +33,5 @@ jobs:
       - name: Compile state-expanded candidate
         run: cmake --build build-routing --target navit_routing_state_test navit_routing_turn_path_test --parallel 2
       - name: Execute candidate CTest
-        run: ctest --test-dir build-routing --output-on-failure -R '^routing_turn_state_(candidate|path)
+        run: ctest --test-dir build-routing --output-on-failure -R routing_turn_state_
 
