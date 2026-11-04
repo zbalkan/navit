@@ -61,3 +61,47 @@ static int route_turn_plan_from_segment(struct route_graph *graph, struct vehicl
     }
     return best != INT_MAX;
 }
+
+/* Direct travel between two projected positions on the same segment.
+ * Returns an isolated candidate; a caller must compare it with paths
+ * that leave and re-enter the segment through the surrounding graph.
+ */
+static int route_turn_plan_direct_on_segment(struct vehicleprofile *profile,
+                                             struct route_graph_segment *segment, int from_percent,
+                                             int to_percent, int street_direction,
+                                             struct route_turn_path *out) {
+    int direction, full, fraction, penalty, partial;
+
+    out->segments = NULL;
+    out->directions = NULL;
+    out->terminal = NULL;
+    out->len = 0;
+    out->cost = INT_MAX;
+    if (!profile || !segment || from_percent < 0 || from_percent > 100
+        || to_percent < 0 || to_percent > 100
+        || (street_direction != -1 && street_direction != 0 && street_direction != 1)
+        || profile->turn_around_penalty < 0)
+        return 0;
+    if (from_percent == to_percent) {
+        out->cost = 0;
+        return 1;
+    }
+
+    direction = to_percent > from_percent ? 1 : -1;
+    full = route_value_seg(profile, NULL, segment, direction * 2);
+    if (full == INT_MAX || full < 0)
+        return 0;
+    fraction = to_percent > from_percent ? to_percent - from_percent : from_percent - to_percent;
+    partial = (full / 100) * fraction + ((full % 100) * fraction) / 100;
+    penalty = street_direction && street_direction != direction ? profile->turn_around_penalty : 0;
+    if (partial > INT_MAX - penalty)
+        return 0;
+
+    out->len = 1;
+    out->segments = g_new0(struct route_graph_segment *, 1);
+    out->directions = g_new0(int, 1);
+    out->segments[0] = segment;
+    out->directions[0] = direction;
+    out->cost = partial + penalty;
+    return 1;
+}
