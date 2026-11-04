@@ -4371,4 +4371,5 @@ struct object_func route_func = {
 #    include "../tests/routing/production_hooks.inc"
 #    include "../tests/routing/production_penalty_cases.inc"
 #    include "../tests/routing/production_state_solver.inc"
+#    include "../tests/routing/benchmark_production.inc"
 #endif
