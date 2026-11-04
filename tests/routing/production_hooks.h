@@ -5,5 +5,6 @@
  * It is absent in ordinary Navit builds.
  */
 int navit_routing_test_case(int case_id);
+int navit_routing_benchmark(int n, int repeats, int shortcuts);
 
 #endif
