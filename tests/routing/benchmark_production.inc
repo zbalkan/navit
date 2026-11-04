@@ -1,4 +1,5 @@
 #include "production_hooks.h"
+#include <time.h>
 
 /*
  * Deterministic, graph-backed comparison.  Both implementations search
@@ -9,6 +10,16 @@
  * The movement-state candidate recomputes the route on every update;
  * it does not perform incremental repair.
  */
+/* Prefer a nanosecond-resolution monotonic clock when supported. */
+static long long routing_benchmark_now_ns(void) {
+#if defined(CLOCK_MONOTONIC)
+    struct timespec timestamp;
+    if (clock_gettime(CLOCK_MONOTONIC, &timestamp) == 0)
+        return (long long)timestamp.tv_sec * 1000000000LL + timestamp.tv_nsec;
+#endif
+    return (long long)g_get_monotonic_time() * 1000LL;
+}
+
 static int routing_benchmark_oracle(int n, int shortcuts, int changed_len) {
     int *distance = g_new0(int, n);
     int i, answer;
@@ -34,7 +45,7 @@ static int routing_benchmark_measure(struct route_graph *graph,
                                      int repetition, const char *operation,
                                      int expected, int reverse_order, int emit) {
     struct route_turn_path turn_path = {0};
-    gint64 begin, end;
+    long long begin, end;
     long long elapsed[2];
     int cost[2], order, which;
     int good;
@@ -42,7 +53,7 @@ static int routing_benchmark_measure(struct route_graph *graph,
     for (order = 0; order < 2; ++order) {
         /* Alternate measurement order between iterations to reduce bias. */
         which = reverse_order ? 1 - order : order;
-        begin = g_get_monotonic_time();
+        begin = routing_benchmark_now_ns();
         if (which == 0) {
             /* Measure notification and repair together for changed edges. */
             if (changed_start)
@@ -54,8 +65,8 @@ static int routing_benchmark_measure(struct route_graph *graph,
                           ? turn_path.cost : INT_MAX;
             route_turn_path_clear(&turn_path);
         }
-        end = g_get_monotonic_time();
-        elapsed[which] = (long long)(end - begin) * 1000;
+        end = routing_benchmark_now_ns();
+        elapsed[which] = end - begin;
     }
 
     good = cost[0] == expected && cost[1] == expected;
