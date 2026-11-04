@@ -1,0 +1,41 @@
+name: Routing sanitizer validation
+
+on:
+  push:
+    branches: ['feat/routing-*']
+    paths:
+      - 'navit/route.c'
+      - 'navit/route_turn_state.inc'
+      - 'navit/route_turn_plan.inc'
+      - 'navit/CMakeLists.txt'
+      - 'tests/routing/**'
+      - '.github/workflows/routing-sanitizers.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-sanitizers:
+    name: Candidate C tests with ASan and UBSan
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
+    steps:
+      - name: Install checkout tools
+        run: apt-get update && apt-get install -y --no-install-recommends git ca-certificates
+      - uses: actions/checkout@v4
+      - name: Install Navit build requirements
+        run: |
+          bash scripts/setup_common_requirements.sh
+          apt-get install -y --no-install-recommends libpng-dev libfreetype6-dev libdbus-glib-1-dev libgtk2.0-dev cmake
+      - name: Configure sanitized routing build
+        run: |
+          cmake -S . -B build-routing-sanitized -DCMAKE_BUILD_TYPE=Debug             -DCMAKE_C_FLAGS="-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined"             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"             -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined"             -DNAVIT_ROUTING_TEST_HOOKS=ON -DNAVIT_ROUTING_TURN_SHADOW=ON             -DSVG2PNG=OFF -DXPM2PNG=OFF -Dgraphics/qt_qpainter:BOOL=FALSE -Dgui/qml:BOOL=FALSE
+      - name: Build candidate tests
+        run: cmake --build build-routing-sanitized --target navit_routing_state_test navit_routing_turn_path_test navit_routing_movement_test --parallel 2
+      - name: Run candidate correctness under sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: ctest --test-dir build-routing-sanitized --output-on-failure -R routing_turn_state_
