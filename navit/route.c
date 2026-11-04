@@ -264,6 +264,10 @@ static int route_value_seg(struct vehicleprofile *profile, struct route_graph_po
                            struct route_graph_segment *over, int dir);
 static void route_graph_init(struct route_graph *this, struct route_info *dst, struct vehicleprofile *profile);
 static void route_graph_reset(struct route_graph *this);
+#ifdef NAVIT_ROUTING_TURN_SHADOW
+static void route_turn_shadow_route(struct route_graph *graph, struct vehicleprofile *profile,
+                                    struct route_info *pos);
+#endif
 
 /**
  * @brief Returns the projection used for this route
@@ -2841,6 +2845,10 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
             && pos->lenextra + dst->lenextra
                    > transform_distance(map_projection(pos->street->item.map), &pos->c, &dst->c)))
         return route_path_new_offroad(this, pos, dst);
+#ifdef NAVIT_ROUTING_TURN_SHADOW
+    /* Diagnostic only: never change the legacy route or graph state. */
+    route_turn_shadow_route(this, profile, pos);
+#endif
     while ((s = route_graph_get_segment(this, pos->street, s))) {
         val = route_value_seg(profile, NULL, s, 2);
         if (val != INT_MAX && s->end->value != INT_MAX) {
@@ -4377,4 +4385,29 @@ struct object_func route_func = {
 #    include "../tests/routing/production_partial_start_cases.inc"
 #    include "../tests/routing/production_penalty_cases.inc"
 #    include "../tests/routing/production_state_solver.inc"
+#endif
+
+#ifdef NAVIT_ROUTING_TURN_SHADOW
+/* Compare live, map-matched route candidates without modifying the active
+ * route. This does not yet handle direct travel between two positions on
+ * the same segment and is therefore not an acceptance oracle.
+ */
+static void route_turn_shadow_route(struct route_graph *graph, struct vehicleprofile *profile,
+                                    struct route_info *pos) {
+    struct route_graph_segment *s = NULL;
+    struct route_turn_path candidate = { 0 };
+    int best = INT_MAX;
+    int attempts = 0;
+
+    while ((s = route_graph_get_segment(graph, pos->street, s))) {
+        attempts++;
+        if (route_turn_plan_from_segment(graph, profile, s, pos->percent,
+                                         pos->street_direction, &candidate) && candidate.cost < best)
+            best = candidate.cost;
+        route_turn_path_clear(&candidate);
+    }
+
+    dbg(lvl_debug, "turn-state shadow: candidates=%d best_cost=%d (tenths of seconds, diagnostic only)", attempts,
+        best);
+}
 #endif
