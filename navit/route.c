@@ -265,7 +265,8 @@ static int route_value_seg(struct vehicleprofile *profile, struct route_graph_po
 static void route_graph_init(struct route_graph *this, struct route_info *dst, struct vehicleprofile *profile);
 static void route_graph_reset(struct route_graph *this);
 #ifdef NAVIT_ROUTING_TURN_SHADOW
-static void route_turn_shadow_route(struct route_graph *graph, struct vehicleprofile *profile, struct route_info *pos);
+static void route_turn_shadow_route(struct route_graph *graph, struct vehicleprofile *profile, struct route_info *pos,
+                                    struct route_info *dst);
 #endif
 
 /**
@@ -2846,7 +2847,7 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
         return route_path_new_offroad(this, pos, dst);
 #ifdef NAVIT_ROUTING_TURN_SHADOW
     /* Diagnostic only: never change the legacy route or graph state. */
-    route_turn_shadow_route(this, profile, pos);
+    route_turn_shadow_route(this, profile, pos, dst);
 #endif
     while ((s = route_graph_get_segment(this, pos->street, s))) {
         val = route_value_seg(profile, NULL, s, 2);
@@ -4391,14 +4392,30 @@ struct object_func route_func = {
  * route. This does not yet handle direct travel between two positions on
  * the same segment and is therefore not an acceptance oracle.
  */
-static void route_turn_shadow_route(struct route_graph *graph, struct vehicleprofile *profile, struct route_info *pos) {
+static void route_turn_shadow_route(struct route_graph *graph, struct vehicleprofile *profile, struct route_info *pos,
+                                    struct route_info *dst) {
     struct route_graph_segment *s = NULL;
     struct route_turn_path candidate = {0};
     int best = INT_MAX;
     int attempts = 0;
 
     while ((s = route_graph_get_segment(graph, pos->street, s))) {
+        struct route_graph_segment *terminal_segment = NULL;
         attempts++;
+        /* The direct same-segment path can be shorter than either
+         * endpoint detour. It is a distinct candidate, not a
+         * replacement for the endpoint search.
+         */
+        if (dst && dst->street && item_is_equal(pos->street->item, dst->street->item)) {
+            while ((terminal_segment = route_graph_get_segment(graph, dst->street, terminal_segment))) {
+                if (terminal_segment == s
+                    && route_turn_plan_direct_on_segment(profile, s, pos->percent, dst->percent,
+                                                         pos->street_direction, &candidate)
+                    && candidate.cost < best)
+                    best = candidate.cost;
+                route_turn_path_clear(&candidate);
+            }
+        }
         if (route_turn_plan_from_segment(graph, profile, s, pos->percent, pos->street_direction, &candidate)
             && candidate.cost < best)
             best = candidate.cost;
