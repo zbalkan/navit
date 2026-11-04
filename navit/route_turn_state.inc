@@ -39,6 +39,44 @@ static void route_turn_path_clear(struct route_turn_path *path) {
     path->cost = INT_MAX;
 }
 
+/* Verify that a selected directed movement sequence is continuous before
+ * it can be converted to route geometry. This is a structural check,
+ * independent of whether the sequence is the globally cheapest route.
+ */
+static int route_turn_path_is_contiguous(const struct route_turn_path *path,
+                                         struct route_graph_point *start) {
+    struct route_graph_point *point = start;
+    struct route_graph_segment *segment;
+    int direction;
+    unsigned int i;
+
+    if (!path || !point || (path->len && (!path->segments || !path->directions)))
+        return 0;
+    for (i = 0; i < path->len; ++i) {
+        segment = path->segments[i];
+        direction = path->directions[i];
+        if (!segment)
+            return 0;
+        if (direction == 1 && segment->start == point)
+            point = segment->end;
+        else if (direction == -1 && segment->end == point)
+            point = segment->start;
+        else
+            return 0;
+    }
+    if (!path->terminal || point != path->terminal)
+        return 0;
+    segment = path->terminal_segment;
+    if (segment) {
+        if (path->terminal_direction == 1)
+            return segment->start == point;
+        if (path->terminal_direction == -1)
+            return segment->end == point;
+        return 0;
+    }
+    return path->terminal_direction == 0;
+}
+
 static struct route_turn_state *route_turn_state_find(GHashTable *forward, GHashTable *reverse,
                                                        struct route_graph_segment *s, int direction) {
     return g_hash_table_lookup(direction > 0 ? forward : reverse, s);
@@ -226,6 +264,11 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
             out->segments[i] = state->incoming;
             out->directions[i] = state->direction;
         }
+    }
+
+    if (winner && !route_turn_path_is_contiguous(out, start)) {
+        route_turn_path_clear(out);
+        winner = NULL;
     }
 
 cleanup:
