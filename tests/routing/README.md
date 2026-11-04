@@ -1,42 +1,57 @@
-# Routing correctness test foundation
+# Navit routing correctness and performance testing
 
-This directory contains independent deterministic routing reference fixtures. It does not yet test Navit's production routing code.
+This directory contains two separate correctness references and an opt-in
+production-C integration harness. **Passing candidate tests do not mean
+Navit's normal routing engine has been replaced.**
 
-## Status
+## Test layers
 
-**Oracle tests only.** All-green results validate the fixture model and independent solver, **not** the correctness of Navit's `route.c`. A future test-only adapter must execute the actual production routing functions against equivalent fixtures. Only then can G-03/INCR-006 be called Red or Green with respect to Navit.
-
-The oracle uses Dijkstra over directed movement states `(junction, incoming road)`, including explicit turn restrictions and incoming-road-dependent penalties. All transition costs are nonnegative integers.
-
-The `through_traffic.json` fixture demonstrates a mathematical successor-dependent penalty counterexample. It is not proof that Navit's actual profile flags reproduce it. Mapping to Navit's real road profiles, graph clones, turn rules, destination candidates and cost units is a separate correctness requirement.
-
-## Run
-
-From the repository root:
-
-`python3 -m unittest discover -s tests/routing -p 'test_*.py' -v`
-
-Python 3.11 or newer; standard library only. The new GitHub workflow runs independently of the existing Navit build workflow.
-
-## Fixture coverage
-
-| Fixture | Specification | Scope |
+| Layer | Runner | What it validates |
 | --- | --- | --- |
-| `directed.json` | CORE-001 | Directed traversal |
-| `alternative.json` | CORE-002 | Alternative route cost |
-| `forbidden_turn.json` | CORE-003 | Prohibited turn |
-| `through_traffic.json` | CORE-004 | Successor-dependent penalty |
-| `equal_successor.json` | INCR-006 (static prerequisite) | Equal-cost continuations |
-| `traffic_events.json` | INCR-002/003/004 (oracle only) | Increase, decrease, closure, reopening |
+| Independent oracle | `python3 -m unittest discover -s tests/routing -p 'test_*.py' -v` | Dijkstra over directed movements, independent JSON road fixtures |
+| Legacy production regression | `ctest -R '^routing_production_search$'` | Actual Navit point-based LPA*-like implementation; cases 4–6 intentionally Red |
+| State-aware cost reference | `ctest -R '^routing_turn_state_candidate$'` | Separate test-only Dijkstra against live Navit segments |
+| Explicit movement paths | `ctest -R '^routing_turn_state_path$'` | Candidate paths, arrival-dependent routing, traffic-cost revisions |
+| Movement semantics | `ctest -R '^routing_turn_state_movement$'` | Directions, road continuity, terminal costs, partial starts, traffic changes |
+| Synthetic benchmark | `navit_routing_benchmark` | Correctness-gated full search versus incremental update measurements |
 
-## Red–Green–Refactor sequencing
+The C harness is enabled with `-DNAVIT_ROUTING_TEST_HOOKS=ON`.
+The independent Python oracle has no C dependencies and uses Python 3.11
+or newer. The `NAVIT_ROUTING_TURN_SHADOW=ON` option enables
+non-authoritative, debug-only evaluation during `route_path_new()`:
+it does **not** change which route Navit follows.
 
-1. Verify independent reference results and fixtures (this commit).
-2. Implement test-only production integration, preserving `route.c` behavior.
-3. Compare production routes against the independent oracle and record baseline characterization separately. Mark tests Red only when an actual production run disagrees with an independently justified expectation.
-4. Make the smallest production change necessary for one observed Red test.
-5. Refactor with all correctness and characterization tests still passing.
+## Reproducible correctness findings
 
-No direct `value`/`rhs` invariant checks, map-backed D-Bus tests, or performance claims exist in this commit.
+CORE-004 shows a through-traffic penalty depending on an incoming road.
+INCR-006 shows a successor change without a cost-to-go change that
+leaves upstream values stale. CORE-004B demonstrates that different
+incoming movements at one junction require different continuations.
+These are **verified failures of the current point-based routing**
+using actual Navit production graph operations, not merely differences
+between abstract algorithms.
 
-The independent `navit-gps/routing-qa` repository remains the established map-backed geographic regression suite; integration with its fixtures and modernization of its older Python 2 runner should be separate subsequent work.
+The candidate solver computes costs and reconstructs directed paths
+for those fixtures. Additional cases establish terminal-partial-road
+penalties, terminal reversal and directional legality, plus
+projected-start choices. These remain synthetic graph tests: realistic
+map geometry, restrictions, waypoints and GPS movement require an
+independent geographic integration suite.
+
+## Benchmarking
+
+The `Routing performance validation` workflow builds an optimized
+synthetic benchmark, checks independent dynamic-programming oracle
+costs for each operation, validates CSV completeness and uploads raw
+samples and environment details. It includes no geographic or
+waypoint route extraction and compares unlike update strategies:
+legacy LPA* repairs while the candidate recomputes from scratch.
+Do **not** infer production performance from these samples.
+
+See `TURN_STATE_DESIGN.md` for the remaining state-aware integration
+and incremental-repair requirements. See `PRODUCTION.md` for the
+original production-harness procedure and historical setup notes.
+
+The geographic suite `navit-gps/routing-qa` has not yet been
+integrated into these workflows. No pull request is required for
+testing on the dedicated feature branch.
