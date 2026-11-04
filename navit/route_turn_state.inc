@@ -78,9 +78,10 @@ static int route_turn_transition_cost(struct vehicleprofile *profile, struct rou
  * out is always initialized. The caller owns its path arrays on success.
  * This function never updates the production graph's value/rhs/seg/heap.
  */
-static int route_turn_graph_path(struct route_graph *graph, struct vehicleprofile *profile,
-                                 struct route_graph_point *start, struct route_graph_point *goal,
-                                 struct route_turn_path *out) {
+static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct vehicleprofile *profile,
+                                              struct route_graph_point *start,
+                                              struct route_graph_segment *incoming, int incoming_direction,
+                                              struct route_graph_point *goal, struct route_turn_path *out) {
     GHashTable *forward = NULL, *reverse = NULL;
     GPtrArray *all = NULL;
     struct fibheap *heap = NULL;
@@ -94,18 +95,13 @@ static int route_turn_graph_path(struct route_graph *graph, struct vehicleprofil
     out->directions = NULL;
     out->cost = INT_MAX;
     if (!graph || !profile || !start || !goal || profile->through_traffic_penalty < 0
-        || profile->turn_around_penalty2 < 0)
+        || profile->turn_around_penalty2 < 0 || (incoming && incoming_direction != 1 && incoming_direction != -1))
         return 0;
 
     forward = g_hash_table_new(g_direct_hash, g_direct_equal);
     reverse = g_hash_table_new(g_direct_hash, g_direct_equal);
     all = g_ptr_array_new_with_free_func(g_free);
     heap = fh_makekeyheap();
-
-    initial = g_new0(struct route_turn_state, 1);
-    initial->point = start;
-    initial->cost = 0;
-    g_ptr_array_add(all, initial);
 
     for (s = graph->route_segments; s; s = s->next) {
         if (s->data.item.type < route_item_first || s->data.item.type > route_item_last || s->start == s->end)
@@ -127,6 +123,16 @@ static int route_turn_graph_path(struct route_graph *graph, struct vehicleprofil
         g_ptr_array_add(all, state);
     }
 
+    if (incoming) {
+        initial = route_turn_state_find(forward, reverse, incoming, incoming_direction);
+        if (!initial || initial->point != start)
+            goto cleanup;
+    } else {
+        initial = g_new0(struct route_turn_state, 1);
+        initial->point = start;
+        g_ptr_array_add(all, initial);
+    }
+    initial->cost = 0;
     initial->element = fh_insertkey(heap, 0, initial);
     while ((state = fh_extractmin(heap))) {
         state->element = NULL;
@@ -178,10 +184,21 @@ static int route_turn_graph_path(struct route_graph *graph, struct vehicleprofil
         g_ptr_array_free(backwards, TRUE);
     }
 
+cleanup:
     /* Discard pending heap elements before freeing their state objects. */
     fh_deleteheap(heap);
     g_hash_table_destroy(forward);
     g_hash_table_destroy(reverse);
     g_ptr_array_free(all, TRUE);
     return winner != NULL;
+}
+
+/* A route beginning at a junction has no incoming movement. A moving vehicle
+ * already traversing a road can instead use route_turn_graph_path_from_arrival()
+ * to preserve the incoming movement context, without charging it twice.
+ */
+static int route_turn_graph_path(struct route_graph *graph, struct vehicleprofile *profile,
+                                 struct route_graph_point *start, struct route_graph_point *goal,
+                                 struct route_turn_path *out) {
+    return route_turn_graph_path_from_arrival(graph, profile, start, NULL, 0, goal, out);
 }
