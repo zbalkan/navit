@@ -32,10 +32,24 @@ jobs:
           bash scripts/setup_common_requirements.sh
           apt-get install -y --no-install-recommends libpng-dev libfreetype6-dev libdbus-glib-1-dev libgtk2.0-dev cmake
       - name: Configure benchmark build
-        run: cmake -S . -B build-routing -DNAVIT_ROUTING_TEST_HOOKS=ON -DSVG2PNG=OFF -DXPM2PNG=OFF -Dgraphics/qt_qpainter:BOOL=FALSE -Dgui/qml:BOOL=FALSE
+        run: cmake -S . -B build-routing -DCMAKE_BUILD_TYPE=Release -DNAVIT_ROUTING_TEST_HOOKS=ON -DSVG2PNG=OFF -DXPM2PNG=OFF -Dgraphics/qt_qpainter:BOOL=FALSE -Dgui/qml:BOOL=FALSE
       - name: Build benchmark executable
         run: cmake --build build-routing --target navit_routing_benchmark --parallel 2
-      - name: Run benchmark and verify cost equality
+      - name: Record benchmark environment
+        shell: bash
+        run: |
+          {
+            printf 'commit=%s\n' "$GITHUB_SHA"
+            printf 'runner=%s\n' "$RUNNER_NAME"
+            printf 'os=%s\n' "$RUNNER_OS"
+            uname -a
+            grep -m1 'model name' /proc/cpuinfo || true
+            grep -m1 'cpu MHz' /proc/cpuinfo || true
+            cmake --version | head -n 1
+            cc --version | head -n 1
+            printf 'build_type=Release\n'
+          } > routing-benchmark-environment.txt
+      - name: Run correctness-gated benchmark
         shell: bash
         run: |
           set -o pipefail
@@ -45,6 +59,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: navit-routing-benchmark-csv
-          path: routing-benchmark.csv
+          path: |
+            routing-benchmark.csv
+            routing-benchmark-environment.txt
           if-no-files-found: warn
           retention-days: 30
