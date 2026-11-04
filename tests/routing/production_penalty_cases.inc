@@ -65,7 +65,12 @@ static int navit_routing_test_penalty_case(int case_id) {
     route_graph_add_segment(graph, c, goal, &data);
     cg = c->start;
 
+    /* Keep the D->Goal continuation restricted: otherwise Navit
+     * correctly charges another exit penalty at D, invalidating
+     * the oracle's purported penalty-free restricted alternative.
+     */
     road_item.id_lo = 105;
+    data.flags = AF_SPEED_LIMIT | AF_THROUGH_TRAFFIC_LIMIT;
     data.len = 1;
     route_graph_add_segment(graph, d, goal, &data);
     dg = d->start;
