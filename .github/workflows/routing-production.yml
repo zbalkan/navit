@@ -2,7 +2,7 @@ name: Navit production routing regression
 
 on:
   push:
-    branches: [trunk, 'test/**']
+    branches: [trunk, 'test/**', 'feat/routing-*']
     paths:
       - 'navit/route.c'
       - 'navit/CMakeLists.txt'
