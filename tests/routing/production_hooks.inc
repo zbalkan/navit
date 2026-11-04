@@ -6,7 +6,7 @@ static int navit_routing_test_penalty_case(int case_id);
 static int navit_routing_test_movement_semantics(int case_id);
 static int navit_routing_test_partial_start(int case_id);
 
-static int navit_routing_test_terminal_transition(void);
+static int navit_routing_test_terminal_transition(int case_id);
 
 int navit_routing_test_case(int case_id) {
     if (case_id == 26)
