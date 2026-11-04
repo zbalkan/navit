@@ -3,6 +3,7 @@
  * These tests exercise actual Navit update/propagation functions.
  */
 static int navit_routing_test_penalty_case(int case_id);
+static int navit_routing_test_movement_semantics(int case_id);
 
 int navit_routing_test_case(int case_id) {
     if (case_id >= 13 && case_id <= 15)
