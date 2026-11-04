@@ -3,6 +3,9 @@
  * These tests exercise actual Navit update/propagation functions.
  */
 int navit_routing_test_case(int case_id) {
+    if (case_id == 4 || case_id == 5)
+        return navit_routing_test_penalty_case(case_id);
+
     struct route_graph *graph = g_new0(struct route_graph, 1);
     struct vehicleprofile profile = { 0 };
     struct roadprofile road_profile = { 0 };
