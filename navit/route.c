@@ -4365,6 +4365,8 @@ struct object_func route_func = {
 
 /* Portable movement-state solver; currently not selected by normal routing. */
 #include "route_turn_state.inc"
+
+/* Depends on route_turn_state.inc: preserve inclusion order. */
 #include "route_turn_plan.inc"
 
 /* Test-only access to static routing internals. */
