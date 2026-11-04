@@ -38,13 +38,36 @@ static int navit_routing_test_movement_semantics(int case_id) {
     route_graph_add_segment(graph, a, b, &data);
     ab = a->start;
 
-    if (case_id == 13 || case_id == 16 || case_id == 17) {
+    if (case_id == 13 || case_id == 16 || case_id == 17 || case_id == 18) {
         /* Two consecutive graph segments represent the same OSM road.
          * Continuing straight must be legal, even if item IDs match.
          */
         route_graph_add_segment(graph, b, c, &data);
         bc = b->start;
-        if (case_id == 13) {
+        if (case_id == 18) {
+            /* Run full state search after each real traffic distortion
+             * event. This is the correctness fallback before an
+             * incremental state-repair implementation exists.
+             */
+            road_item.id_lo = 600;
+            data.len = 5;
+            route_graph_add_segment(graph, a, c, &data);
+            result = route_turn_graph_path(graph, &profile, a, c, &path);
+            observed = path.cost;
+            result = result && observed == 2 && path.len == 2;
+            route_turn_path_clear(&path);
+
+            route_graph_set_traffic_distortion(graph, bc, 10);
+            result = result && route_turn_graph_path(graph, &profile, a, c, &path);
+            observed = path.cost;
+            result = result && observed == 5 && path.len == 1;
+            route_turn_path_clear(&path);
+
+            route_graph_set_traffic_distortion(graph, bc, 0);
+            result = result && route_turn_graph_path(graph, &profile, a, c, &path);
+            observed = path.cost;
+            result = result && observed == 2 && path.len == 2;
+        } else if (case_id == 13) {
             result = route_turn_graph_path(graph, &profile, a, c, &path);
             observed = path.cost;
             result = result && observed == 2 && path.len == 2
