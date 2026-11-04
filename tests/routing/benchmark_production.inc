@@ -46,8 +46,9 @@ static int routing_benchmark_measure(struct route_graph *graph,
                                      int expected, int reverse_order, int emit) {
     struct route_turn_path turn_path = {0};
     long long begin, end;
-    long long elapsed[2];
-    int cost[2], order, which;
+    long long elapsed[2] = { 0, 0 };
+    int cost[2] = { INT_MAX, INT_MAX };
+    int order, which;
     int good;
 
     for (order = 0; order < 2; ++order) {
