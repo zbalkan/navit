@@ -4,7 +4,7 @@
 int navit_routing_benchmark(int n, int repeats, int shortcuts);
 
 int main(void) {
-  const int sizes[] = {50, 200, 600};
+  const int sizes[] = {50, 200, 600, 1200, 2400};
   unsigned int i;
   int shortcuts;
   int failures = 0;
