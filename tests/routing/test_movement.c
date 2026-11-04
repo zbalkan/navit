@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 int main(void) {
-  const int cases[] = {13, 14, 15, 16, 17};
+  const int cases[] = {13, 14, 15, 16, 17, 18};
   unsigned int i;
   int failures = 0;
   for (i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {
