@@ -25,6 +25,14 @@ class OracleSpecificationTests(unittest.TestCase):
         fixture = load_fixture(FIXTURES / "through_traffic.json")
         self.assertEqual(shortest_route(fixture), (3, ("ab", "bd", "dg")))
 
+    def test_same_junction_requires_distinct_arrival_contexts(self):
+        fixture = load_fixture(FIXTURES / "dual_ingress.json")
+        self.assertEqual(shortest_route(fixture), (4, ("ab", "bd", "dg")))
+        self.assertEqual(
+            shortest_route({**fixture, "start": "X"}),
+            (3, ("xb", "bc", "cg")),
+        )
+
     def test_equal_cost_successor_transition(self):
         fixture = load_fixture(FIXTURES / "equal_successor.json")
         self.assertEqual(shortest_route(fixture), (3, ("ab", "bd", "dg")))
