@@ -18,6 +18,8 @@ static int route_turn_plan_from_segment(struct route_graph *graph, struct vehicl
     out->segments = NULL;
     out->directions = NULL;
     out->terminal = NULL;
+    out->terminal_segment = NULL;
+    out->terminal_direction = 0;
     out->len = 0;
     out->cost = INT_MAX;
     if (!graph || !profile || !start_segment || percent < 0 || percent > 100
@@ -54,6 +56,8 @@ static int route_turn_plan_from_segment(struct route_graph *graph, struct vehicl
                 out->directions[i + 1] = suffix.directions[i];
             }
             out->terminal = suffix.terminal;
+            out->terminal_segment = suffix.terminal_segment;
+            out->terminal_direction = suffix.terminal_direction;
             out->cost = total;
             best = total;
         }
@@ -75,6 +79,8 @@ static int route_turn_plan_direct_on_segment(struct vehicleprofile *profile,
     out->segments = NULL;
     out->directions = NULL;
     out->terminal = NULL;
+    out->terminal_segment = NULL;
+    out->terminal_direction = 0;
     out->len = 0;
     out->cost = INT_MAX;
     if (!profile || !segment || from_percent < 0 || from_percent > 100
