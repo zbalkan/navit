@@ -9,6 +9,8 @@ on:
       - 'navit/attr.h'
       - 'navit/route.c'
       - 'navit/route_arrival_state.inc'
+      - 'navit/route_turn_state.inc'
+      - 'navit/route_turn_plan.inc'
       - 'navit/CMakeLists.txt'
       - 'CMakeLists.txt'
       - 'tests/routing/**'
@@ -17,6 +19,8 @@ on:
     paths:
       - 'navit/route.c'
       - 'navit/route_arrival_state.inc'
+      - 'navit/route_turn_state.inc'
+      - 'navit/route_turn_plan.inc'
       - 'navit/route_protected.h'
       - 'navit/route.h'
       - 'navit/attr.h'

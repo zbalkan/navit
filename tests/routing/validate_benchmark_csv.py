@@ -8,7 +8,8 @@ from pathlib import Path
 
 SIZES = {50, 200, 600, 1200, 2400}
 SCENARIOS = {"chain", "skip"}
-IMPLEMENTATIONS = {"legacy", "movement"}
+MODES = {"legacy": 0, "arrival-experiment": 9000}
+MOVEMENT = "movement"
 OPERATIONS = {"full", "increase", "decrease"}
 REPETITIONS = 25
 FIELDS = [
@@ -17,9 +18,10 @@ FIELDS = [
 ]
 
 
-def independently_expected_cost(vertices: int, scenario: str, operation: str) -> int:
+def independently_expected_cost(
+    vertices: int, scenario: str, operation: str, penalty: int
+) -> int:
     """Recalculate the declared forward-only restricted-road DAG independently."""
-    penalty = 9000
     changed = 30 if operation == "increase" else 10
     distance = [[0, 0] for _ in range(vertices)]
     for point in range(vertices - 2, -1, -1):
@@ -39,7 +41,11 @@ def independently_expected_cost(vertices: int, scenario: str, operation: str) ->
     return distance[0][0]
 
 
-def validate(path: Path) -> None:
+def validate(path: Path, mode: str) -> None:
+    if mode not in MODES:
+        raise ValueError(f"Unknown benchmark mode: {mode}")
+    implementations = {mode, MOVEMENT}
+    penalty = MODES[mode]
     with path.open(newline="", encoding="utf-8") as stream:
         reader = csv.DictReader(stream)
         if reader.fieldnames != FIELDS:
@@ -61,11 +67,11 @@ def validate(path: Path) -> None:
                 scenario not in SCENARIOS
                 or vertices not in SIZES
                 or not 0 <= repetition < REPETITIONS
-                or implementation not in IMPLEMENTATIONS
+                or implementation not in implementations
                 or operation not in OPERATIONS
                 or edges != vertices - 1 + (vertices - 2 if scenario == "skip" else 0)
                 or elapsed < 0
-                or expected != independently_expected_cost(vertices, scenario, operation)
+                or expected != independently_expected_cost(vertices, scenario, operation, penalty)
                 or cost != expected
                 or row["correctness"] != "pass"
             ):
@@ -76,7 +82,7 @@ def validate(path: Path) -> None:
         for scenario in SCENARIOS
         for size in SIZES
         for repetition in range(REPETITIONS)
-        for implementation in IMPLEMENTATIONS
+        for implementation in implementations
         for operation in OPERATIONS
     }
     if set(seen) != expected_keys or any(count != 1 for count in seen.values()):
@@ -89,7 +95,9 @@ def validate(path: Path) -> None:
 
 if __name__ == "__main__":
     try:
-        validate(Path(sys.argv[1]))
+        if len(sys.argv) != 3:
+            raise ValueError("Usage: validate_benchmark_csv.py FILE {legacy|arrival-experiment}")
+        validate(Path(sys.argv[1]), sys.argv[2])
     except (ValueError, TypeError, OSError, IndexError) as exc:
         print(f"Benchmark CSV validation failed: {exc}", file=sys.stderr)
         sys.exit(1)
