@@ -1453,9 +1453,12 @@ void route_graph_free_points(struct route_graph *this) {
  * Standalone regression fixtures call this helper instead of inserting
  * graph-point payloads directly into the arrival-state queue.
  */
+/* Declared later with the shared segment-cost helpers. */
+static int route_through_traffic_allowed(struct vehicleprofile *profile, struct route_graph_segment *seg);
+
 static void route_graph_seed_destination(struct route_graph *graph, struct vehicleprofile *profile,
-                                         struct route_graph_point *point, struct route_graph_segment *segment,
-                                         int cost, int fraction) {
+                                         struct route_graph_point *point, struct route_graph_segment *segment, int cost,
+                                         int fraction) {
     int restricted_cost = cost;
     int arrival_enabled = ROUTE_ARRIVAL_ENABLED(profile);
 
@@ -1505,8 +1508,8 @@ static void route_graph_seed_destination(struct route_graph *graph, struct vehic
         point->restricted_el = NULL;
     }
     if (restricted_cost != INT_MAX)
-        point->restricted_el = fh_insertkey(graph->heap,
-                                            MIN(restricted_cost, point->restricted_value), &point->queue[1]);
+        point->restricted_el =
+            fh_insertkey(graph->heap, MIN(restricted_cost, point->restricted_value), &point->queue[1]);
 }
 
 /**
@@ -3016,10 +3019,9 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
             if (route_graph_segment_match(s, this->avoid_seg) && pos->street_direction < 0)
                 val += profile->turn_around_penalty;
             dbg(lvl_debug, "val1 %d", val);
-            val1_new =
-                route_value_add(val, ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s)
-                                         ? s->end->restricted_value
-                                         : s->end->value);
+            val1_new = route_value_add(val, ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s)
+                                                ? s->end->restricted_value
+                                                : s->end->value);
             dbg(lvl_debug, "val1 +%d=%d", s->end->value, val1_new);
             if (val1_new < val1) {
                 val1 = val1_new;
@@ -3033,10 +3035,9 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
             if (route_graph_segment_match(s, this->avoid_seg) && pos->street_direction > 0)
                 val += profile->turn_around_penalty;
             dbg(lvl_debug, "val2 %d", val);
-            val2_new =
-                route_value_add(val, ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s)
-                                         ? s->start->restricted_value
-                                         : s->start->value);
+            val2_new = route_value_add(val, ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s)
+                                                ? s->start->restricted_value
+                                                : s->start->value);
             dbg(lvl_debug, "val2 +%d=%d", s->start->value, val2_new);
             if (val2_new < val2) {
                 val2 = val2_new;
@@ -3049,9 +3050,8 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
         return NULL;
     }
     if (val1 == val2) {
-        val1 = ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s1)
-                   ? s1->end->restricted_value
-                   : s1->end->value;
+        val1 = ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s1) ? s1->end->restricted_value
+                                                                                             : s1->end->value;
         val2 = ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s2)
                    ? s2->start->restricted_value
                    : s2->start->value;
@@ -3101,7 +3101,10 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
         if (s->start == start) {
             if (item_is_equal(s->data.item, dst->street->item)
                 && ((ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s)
-                         ? s->end->restricted_seg : s->end->seg) == s || !posinfo))
+                         ? s->end->restricted_seg
+                         : s->end->seg)
+                        == s
+                    || !posinfo))
                 dstinfo = dst;
             if (!route_path_add_item_from_graph(ret, oldpath, s, 1, posinfo, dstinfo))
                 ret->updated = 0;
@@ -3109,7 +3112,10 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
         } else {
             if (item_is_equal(s->data.item, dst->street->item)
                 && ((ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s)
-                         ? s->start->restricted_seg : s->start->seg) == s || !posinfo))
+                         ? s->start->restricted_seg
+                         : s->start->seg)
+                        == s
+                    || !posinfo))
                 dstinfo = dst;
             if (!route_path_add_item_from_graph(ret, oldpath, s, -1, posinfo, dstinfo))
                 ret->updated = 0;
@@ -3117,7 +3123,7 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
         }
         posinfo = NULL;
         s = (ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s)) ? start->restricted_seg
-                                                                                                 : start->seg;
+                                                                                           : start->seg;
     }
     if (dst->lenextra)
         route_path_add_line(ret, &dst->lp, &dst->c, dst->lenextra);
@@ -4551,8 +4557,10 @@ struct object_func route_func = {
 /* The independent movement-state search is diagnostic/test-only until
  * its performance and route geometry are validated for release builds. */
 #if defined(NAVIT_ROUTING_TEST_HOOKS) || defined(NAVIT_ROUTING_TURN_SHADOW)
+// clang-format off
 #    include "route_turn_state.inc"
 #    include "route_turn_plan.inc"
+// clang-format on
 #endif
 
 /* Test-only access to static routing internals. */

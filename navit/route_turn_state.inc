@@ -87,13 +87,16 @@ static struct route_turn_state *route_turn_state_find(GHashTable *forward, GHash
  * in dst_val, but must still pay their incoming-to-terminal turn cost.
  */
 static int route_turn_transition_penalty(struct vehicleprofile *profile, struct route_graph_segment *previous,
-                                         struct route_graph_segment *next) {
+                                         int previous_direction, struct route_graph_segment *next, int direction) {
     int extra = 0;
     if (!previous)
         return 0;
     if (previous == next)
         return INT_MAX;
-    if (item_is_equal(previous->data.item, next->data.item)) {
+    /* Consecutive pieces of the same map item are legal in the same direction.
+     * Reversing direction on that item is a turnaround, not a continuation.
+     */
+    if (previous_direction != direction && item_is_equal(previous->data.item, next->data.item)) {
         if (profile->turn_around_penalty2 <= 0)
             return INT_MAX;
         extra = profile->turn_around_penalty2;
@@ -107,9 +110,9 @@ static int route_turn_transition_penalty(struct vehicleprofile *profile, struct 
 }
 
 static int route_turn_transition_cost(struct vehicleprofile *profile, struct route_graph_segment *previous,
-                                      struct route_graph_segment *next, int direction) {
+                                      int previous_direction, struct route_graph_segment *next, int direction) {
     int step = route_value_seg(profile, NULL, next, direction);
-    int extra = route_turn_transition_penalty(profile, previous, next);
+    int extra = route_turn_transition_penalty(profile, previous, previous_direction, next, direction);
 
     if (step == INT_MAX || extra == INT_MAX || step > INT_MAX - extra)
         return INT_MAX;
@@ -139,7 +142,7 @@ static int route_turn_terminal_cost(struct vehicleprofile *profile, struct route
         return INT_MAX;
     if (fraction >= 0 && fraction <= 100)
         remaining = (full / 100) * fraction + ((full % 100) * fraction) / 100;
-    extra = route_turn_transition_penalty(profile, state->incoming, segment);
+    extra = route_turn_transition_penalty(profile, state->incoming, state->direction, segment, direction);
     if (extra == INT_MAX || remaining > INT_MAX - extra)
         return INT_MAX;
     return remaining + extra;
@@ -235,7 +238,7 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
                 next = route_turn_state_find(forward, reverse, current, direction);
                 if (!next || next->settled)
                     continue;
-                step = route_turn_transition_cost(profile, state->incoming, current, direction);
+                step = route_turn_transition_cost(profile, state->incoming, state->direction, current, direction);
                 if (step == INT_MAX || state->cost > INT_MAX - step)
                     continue;
                 candidate = state->cost + step;

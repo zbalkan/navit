@@ -4,6 +4,9 @@ on:
   push:
     branches: [trunk, 'test/**', 'feat/routing-*', 'fix/routing-*']
     paths:
+      - 'navit/route.h'
+      - 'navit/route_protected.h'
+      - 'navit/attr.h'
       - 'navit/route.c'
       - 'navit/route_arrival_state.inc'
       - 'navit/CMakeLists.txt'
@@ -42,9 +45,15 @@ jobs:
           apt-get install -y --no-install-recommends libpng-dev libfreetype6-dev libdbus-glib-1-dev libgtk2.0-dev cmake
       - name: Configure routing production test target
         run: |
-          cmake -S . -B build-routing -DNAVIT_ROUTING_TEST_HOOKS=ON -DSVG2PNG=OFF -DXPM2PNG=OFF -Dgraphics/qt_qpainter:BOOL=FALSE -Dgui/qml:BOOL=FALSE
+          cmake -S . -B build-routing -DNAVIT_ROUTING_TEST_HOOKS=ON -DNAVIT_ROUTING_ARRIVAL_EXPERIMENT=ON -DSVG2PNG=OFF -DXPM2PNG=OFF -Dgraphics/qt_qpainter:BOOL=FALSE -Dgui/qml:BOOL=FALSE
       - name: Build routing production smoke test
         run: cmake --build build-routing --target navit_routing_production_test --parallel 2
       - name: Execute production routing tests
         run: ctest --test-dir build-routing --verbose -R routing_production_search
+      - name: Configure legacy routing smoke test without arrival experiment
+        run: cmake -S . -B build-routing-legacy -DNAVIT_ROUTING_TEST_HOOKS=ON -DNAVIT_ROUTING_ARRIVAL_EXPERIMENT=OFF -DSVG2PNG=OFF -DXPM2PNG=OFF -Dgraphics/qt_qpainter:BOOL=FALSE -Dgui/qml:BOOL=FALSE
+      - name: Build legacy routing smoke test
+        run: cmake --build build-routing-legacy --target navit_routing_production_test --parallel 2
+      - name: Execute legacy cases 1-3
+        run: build-routing-legacy/navit/navit_routing_production_test --legacy-smoke
 

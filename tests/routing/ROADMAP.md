@@ -33,7 +33,7 @@ Fixture costs use P=100 and the test roads' small integer travel costs. Add the 
 
 ## Target design
 
-Retain two labels per junction: **U** (arrived on unrestricted road), **R** (arrived on restricted road). Their transition costs depend on the outgoing road's class. Reuse the current two-label Bellman recurrence, which covers today's material through-traffic predecessor dependence; avoid introducing full edge-state expansion without a new cost term that requires it.
+Retain two labels per junction for the **through-traffic penalty subproblem only**: **U** (arrived on unrestricted road) and **R** (arrived on restricted road). Their transition costs depend on the outgoing road's class. **This reduced state space cannot enforce arbitrary incoming-segment turn rules**: prohibiting exact physical-segment reversals and distinguishing distinct segments with the same road item requires an incoming-movement state. D3 therefore remains a blocker to using the two-label recurrence as a fully equivalent production router. Preserve the separate movement-state solver as the semantic reference; do not claim full production equivalence until exact-turn behavior is verified against an incoming-segment oracle.
 
 Replace the prototype's **two separate Fibonacci heaps** with a **single globally key-ordered heap** whose elements identify their arrival class. Each label holds `value`, `rhs`, `seg`, `el` and, only if justified by reversal tests, a successor-dirty flag. Store both labels in one `route_graph_state state[2]` array. Remove `route_graph_point::graph`, `restricted_heap` and redundant per-point dirty fields.
 
