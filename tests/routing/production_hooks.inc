@@ -15,7 +15,7 @@ int navit_routing_test_point_size(void) {
 }
 
 int navit_routing_test_case(int case_id) {
-    if (case_id == 35 || case_id == 36)
+    if (case_id >= 35 && case_id <= 39)
         return navit_routing_test_arrival_semantics(case_id);
     if (case_id == 34)
         return navit_routing_test_differential();
