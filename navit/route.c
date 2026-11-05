@@ -2978,6 +2978,7 @@ struct coord route_get_coord_dist(struct route *this_, int dist) {
 // clang-format off
 #include "route_turn_state.inc"
 #include "route_turn_plan.inc"
+#include "route_turn_adapter.inc"
 // clang-format on
 
 /**
@@ -4565,6 +4566,7 @@ struct object_func route_func = {
 /* Test-only access to static routing internals. */
 #ifdef NAVIT_ROUTING_TEST_HOOKS
 #    include "../tests/routing/benchmark_production.inc"
+#    include "../tests/routing/production_adapter_cases.inc"
 #    include "../tests/routing/production_arrival_semantics.inc"
 #    include "../tests/routing/production_hooks.inc"
 #    include "../tests/routing/production_movement_cases.inc"
