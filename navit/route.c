@@ -2978,6 +2978,7 @@ struct coord route_get_coord_dist(struct route *this_, int dist) {
 // clang-format off
 #include "route_turn_state.inc"
 #include "route_turn_plan.inc"
+#include "route_turn_adapter.inc"
 // clang-format on
 
 /**
