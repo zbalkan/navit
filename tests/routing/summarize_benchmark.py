@@ -122,7 +122,7 @@ def to_markdown(report: dict) -> str:
         "Do not compare speed ratios between different benchmark modes.",
         "",
         "| Scenario | Vertices | Operation | Optimal cost effect | Point median (ms) | Point p95 (ms) | Movement median (ms) | Movement p95 (ms) | Paired ratio |",
-        "| --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: |", 
+        "| --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: |",
     ]
     for item in report["results"]:
         point, movement = item["point"], item["movement"]
