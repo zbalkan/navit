@@ -221,7 +221,8 @@ static int navit_routing_test_differential(void) {
                             if (arcs[i].segment == changed) {
                                 int closed = (changed->data.flags & (AF_ONEWAY | AF_ONEWAYREV))
                                              == (AF_ONEWAY | AF_ONEWAYREV);
-                                arcs[i].cost = closed ? INT_MAX : changed->data.len;
+                                /* Navit normalizes a zero-duration segment to one tick. */
+                                arcs[i].cost = closed ? INT_MAX : (changed->data.len ? changed->data.len : 1);
                             }
                         }
                         route_graph_point_update(&profile, changed->start, graph->heap);
