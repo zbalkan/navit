@@ -3107,17 +3107,13 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
             return NULL;
         }
         if (s->start == start) {
-            if (item_is_equal(s->data.item, dst->street->item)
-                && (s->end->seg == s
-                    || !posinfo))
+            if (item_is_equal(s->data.item, dst->street->item) && (s->end->seg == s || !posinfo))
                 dstinfo = dst;
             if (!route_path_add_item_from_graph(ret, oldpath, s, 1, posinfo, dstinfo))
                 ret->updated = 0;
             start = s->end;
         } else {
-            if (item_is_equal(s->data.item, dst->street->item)
-                && (s->start->seg == s
-                    || !posinfo))
+            if (item_is_equal(s->data.item, dst->street->item) && (s->start->seg == s || !posinfo))
                 dstinfo = dst;
             if (!route_path_add_item_from_graph(ret, oldpath, s, -1, posinfo, dstinfo))
                 ret->updated = 0;
