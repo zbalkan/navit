@@ -1,7 +1,8 @@
 /*
  * Convert exact incoming-movement plans into Navit's ordinary route_path
  * segments. The route graph itself owns all referenced road segments.
- * This adapter performs no graph search or geometric approximation.
+ * This adapter adds no geometric approximation; route_turn_select_plan()
+ * invokes the graph search implemented by the turn planner.
  */
 /* Select exact directed movements independently of path geometry.
  * A separate entry point permits differential testing of the same policy
