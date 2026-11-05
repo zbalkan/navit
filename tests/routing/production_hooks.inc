@@ -29,7 +29,7 @@ int navit_routing_test_case(int case_id) {
         return navit_routing_test_terminal_transition(case_id);
     if (case_id >= 19 && case_id <= 25)
         return navit_routing_test_partial_start(case_id);
-    if (case_id >= 13 && case_id <= 18)
+    if ((case_id >= 13 && case_id <= 18) || case_id == 48)
         return navit_routing_test_movement_semantics(case_id);
     if ((case_id >= 4 && case_id <= 12) || case_id == 29 || (case_id >= 31 && case_id <= 33))
         return navit_routing_test_penalty_case(case_id);

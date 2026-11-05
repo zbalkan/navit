@@ -110,6 +110,24 @@ static int navit_routing_test_movement_semantics(int case_id) {
         route_turn_path_clear(&path);
         result = result && !route_turn_graph_path(graph, &profile, b, a, &path)
                  && path.cost == INT_MAX;
+    } else if (case_id == 48) {
+        /* Exact segment reversal stays forbidden even when turnaround
+         * penalties are enabled; a different road returning to A is legal.
+         * Arrival-class-only state cannot distinguish these choices.
+         */
+        struct item return_item = { 0 };
+        struct route_graph_segment *return_road;
+        return_item.type = type_street_0;
+        return_item.id_lo = 501;
+        data.item = &return_item;
+        data.len = 3;
+        profile.turn_around_penalty2 = 50;
+        route_graph_add_segment(graph, b, a, &data);
+        return_road = b->start;
+        result = route_turn_graph_path_from_arrival(graph, &profile, b, ab, 1, a, &path);
+        observed = path.cost;
+        result = result && observed == 3 && path.len == 1
+                 && path.segments[0] == return_road && path.directions[0] == 1;
     } else if (case_id == 15) {
         /* An immediate U-turn on the incoming segment is forbidden
          * when the vehicle profile has no turnaround allowance.
