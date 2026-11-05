@@ -63,6 +63,7 @@ testing on the dedicated feature branch.
 
 Configure first with `cmake -S . -B build-routing -DNAVIT_ROUTING_TEST_HOOKS=ON`, then build the relevant test targets.
 The C harness is enabled with `-DNAVIT_ROUTING_TEST_HOOKS=ON`.
+For the legacy smoke check, configure a separate build with `-DNAVIT_ROUTING_ARRIVAL_EXPERIMENT=OFF` and run `build-routing-legacy/navit/navit_routing_production_test --legacy-smoke` after building that target. Full legacy cases 4–6 remain verified Red and are deliberately excluded from that smoke command. The regression workflow runs both the opt-in arrival experiment and the separate legacy smoke build.
 The independent Python oracle has no C dependencies and uses Python 3.11
 or newer. The `NAVIT_ROUTING_TURN_SHADOW=ON` option enables
 non-authoritative, debug-only evaluation during `route_path_new()`:
