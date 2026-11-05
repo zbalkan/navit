@@ -79,6 +79,16 @@ static int navit_routing_test_arrival_semantics(int case_id) {
         actual = a->value;
         expected = 2;
         result = actual == expected;
+    } else if (case_id == 41) {
+        struct attr invalid = { 0 };
+        struct attr queried = { 0 };
+        invalid.type = attr_through_traffic_penalty;
+        invalid.u.num = -1;
+        actual = vehicleprofile_set_attr(&profile, &invalid);
+        expected = 0;
+        result = actual == expected;
+        result = result && profile.through_traffic_penalty == 100;
+        result = result && !vehicleprofile_get_attr(&profile, attr_through_traffic_penalty, &queried, NULL);
     } else if (case_id == 40) {
         /* Two open-road arrivals at B require different continuations.
          * Reverse-direction same-item B->C is cheap for other arrivals,
