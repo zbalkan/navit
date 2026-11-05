@@ -3,53 +3,61 @@
  * segments. The route graph itself owns all referenced road segments.
  * This adapter performs no graph search or geometric approximation.
  */
-static struct route_path *route_path_new_movement(struct route_graph *graph, struct route_path *oldpath,
-                                                  struct route_info *pos, struct route_info *dst,
-                                                  struct vehicleprofile *profile) {
+/* Select exact directed movements independently of path geometry.
+ * A separate entry point permits differential testing of the same policy
+ * that the production route adapter will consume.
+ */
+static int route_turn_select_plan(struct route_graph *graph, struct route_info *pos,
+                                   struct route_info *dst, struct vehicleprofile *profile,
+                                   struct route_turn_path *best, int *direct) {
     struct route_graph_segment *segment = NULL, *terminal;
-    struct route_turn_path best = { 0 }, candidate = { 0 };
-    struct route_path *result;
-    unsigned int i;
-    int direct = 0, candidate_direct = 0;
+    struct route_turn_path candidate = { 0 };
     int best_cost = INT_MAX;
 
+    *direct = 0;
     if (!graph || !pos || !dst || !pos->street || !dst->street)
-        return NULL;
+        return 0;
 
     while ((segment = route_graph_get_segment(graph, pos->street, segment))) {
         terminal = NULL;
-        /* A destination on the same physical graph segment may be reached
-         * directly without visiting a junction or paying an exit penalty.
-         */
         if (item_is_equal(pos->street->item, dst->street->item)) {
             while ((terminal = route_graph_get_segment(graph, dst->street, terminal))) {
                 if (terminal != segment)
                     continue;
-                candidate_direct = 1;
                 if (route_turn_plan_direct_on_segment(profile, segment, pos->percent, dst->percent,
                                                        pos->street_direction, &candidate)
                     && candidate.cost < best_cost) {
-                    route_turn_path_clear(&best);
-                    best = candidate;
+                    route_turn_path_clear(best);
+                    *best = candidate;
                     memset(&candidate, 0, sizeof(candidate));
-                    best_cost = best.cost;
-                    direct = 1;
+                    best_cost = best->cost;
+                    *direct = 1;
                 }
                 route_turn_path_clear(&candidate);
             }
         }
-        candidate_direct = 0;
         if (route_turn_plan_from_segment(graph, profile, segment, pos->percent, pos->street_direction, &candidate)
             && candidate.cost < best_cost) {
-            route_turn_path_clear(&best);
-            best = candidate;
+            route_turn_path_clear(best);
+            *best = candidate;
             memset(&candidate, 0, sizeof(candidate));
-            best_cost = best.cost;
-            direct = candidate_direct;
+            best_cost = best->cost;
+            *direct = 0;
         }
         route_turn_path_clear(&candidate);
     }
-    if (best_cost == INT_MAX)
+    return best_cost != INT_MAX;
+}
+
+static struct route_path *route_path_new_movement(struct route_graph *graph, struct route_path *oldpath,
+                                                  struct route_info *pos, struct route_info *dst,
+                                                  struct vehicleprofile *profile) {
+    struct route_turn_path best = { 0 };
+    struct route_path *result;
+    unsigned int i;
+    int direct = 0;
+
+    if (!route_turn_select_plan(graph, pos, dst, profile, &best, &direct))
         return NULL;
 
     result = g_new0(struct route_path, 1);
