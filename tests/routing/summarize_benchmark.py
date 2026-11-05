@@ -58,7 +58,7 @@ def summarize(csv_path: Path, mode: str) -> dict:
                 point_ns = [point[i] for i in ids]
                 movement_ns = [reference[i] for i in ids]
                 paired_ratios = [
-                    movement[i] / point[i] for i in ids if point[i] > 0
+                    reference[i] / point[i] for i in ids if point[i] > 0
                 ]
                 # Exclude zero-duration denominator samples rather than invent a ratio.
                 results.append({
