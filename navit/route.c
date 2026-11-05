@@ -2972,15 +2972,6 @@ struct coord route_get_coord_dist(struct route *this_, int dist) {
     return dst->c;
 }
 
-/* Exact directed-movement solver. Its state tracks the incoming road
- * and direction, which cannot be represented by the two through-traffic
- * arrival-class labels alone.
- */
-// clang-format off
-#include "route_turn_state.inc"
-#include "route_turn_plan.inc"
-// clang-format on
-
 /**
  * @brief Creates a new route path
  *
@@ -4562,6 +4553,15 @@ struct object_func route_func = {
     (object_func_ref)navit_object_ref,
     (object_func_unref)navit_object_unref,
 };
+
+/* The independent movement-state search remains diagnostic/test-only
+ * until full production geometry and incremental integration are validated. */
+#if defined(NAVIT_ROUTING_TEST_HOOKS) || defined(NAVIT_ROUTING_TURN_SHADOW)
+// clang-format off
+#    include "route_turn_state.inc"
+#    include "route_turn_plan.inc"
+// clang-format on
+#endif
 
 /* Test-only access to static routing internals. */
 #ifdef NAVIT_ROUTING_TEST_HOOKS
