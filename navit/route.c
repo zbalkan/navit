@@ -3037,9 +3037,7 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
             if (route_graph_segment_match(s, this->avoid_seg) && pos->street_direction < 0)
                 val += profile->turn_around_penalty;
             dbg(lvl_debug, "val1 %d", val);
-            val1_new = route_value_add(val, ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s)
-                                                ? s->end->restricted_value
-                                                : s->end->value);
+            val1_new = route_value_add(val, s->end->value);
             dbg(lvl_debug, "val1 +%d=%d", s->end->value, val1_new);
             if (val1_new < val1) {
                 val1 = val1_new;
@@ -3053,9 +3051,7 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
             if (route_graph_segment_match(s, this->avoid_seg) && pos->street_direction > 0)
                 val += profile->turn_around_penalty;
             dbg(lvl_debug, "val2 %d", val);
-            val2_new = route_value_add(val, ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s)
-                                                ? s->start->restricted_value
-                                                : s->start->value);
+            val2_new = route_value_add(val, s->start->value);
             dbg(lvl_debug, "val2 +%d=%d", s->start->value, val2_new);
             if (val2_new < val2) {
                 val2 = val2_new;
@@ -3068,11 +3064,8 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
         return NULL;
     }
     if (val1 == val2) {
-        val1 = ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s1) ? s1->end->restricted_value
-                                                                                             : s1->end->value;
-        val2 = ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s2)
-                   ? s2->start->restricted_value
-                   : s2->start->value;
+        val1 = s1->end->value;
+        val2 = s2->start->value;
     }
     if (val1 < val2) {
         start = s1->start;
@@ -3105,9 +3098,6 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
     dstinfo = NULL;
     posinfo = pos;
     max_segs = route_graph_count_points(this);
-    /* A legal path can revisit a junction in a different arrival class. */
-    if (ROUTE_ARRIVAL_ENABLED(profile) && max_segs <= INT_MAX / 2)
-        max_segs *= 2;
     while (s && !dstinfo) { /* following start->seg, which indicates the least costly way to reach our destination */
         segs++;
         if (segs > max_segs) {
@@ -3118,10 +3108,7 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
         }
         if (s->start == start) {
             if (item_is_equal(s->data.item, dst->street->item)
-                && ((ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s)
-                         ? s->end->restricted_seg
-                         : s->end->seg)
-                        == s
+                && (s->end->seg == s
                     || !posinfo))
                 dstinfo = dst;
             if (!route_path_add_item_from_graph(ret, oldpath, s, 1, posinfo, dstinfo))
@@ -3129,10 +3116,7 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
             start = s->end;
         } else {
             if (item_is_equal(s->data.item, dst->street->item)
-                && ((ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s)
-                         ? s->start->restricted_seg
-                         : s->start->seg)
-                        == s
+                && (s->start->seg == s
                     || !posinfo))
                 dstinfo = dst;
             if (!route_path_add_item_from_graph(ret, oldpath, s, -1, posinfo, dstinfo))
@@ -3140,8 +3124,7 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
             start = s->start;
         }
         posinfo = NULL;
-        s = (ROUTE_ARRIVAL_ENABLED(profile) && !route_through_traffic_allowed(profile, s)) ? start->restricted_seg
-                                                                                           : start->seg;
+        s = start->seg;
     }
     if (dst->lenextra)
         route_path_add_line(ret, &dst->lp, &dst->c, dst->lenextra);
