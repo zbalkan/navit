@@ -4561,6 +4561,7 @@ struct object_func route_func = {
 #    include "../tests/routing/production_partial_start_cases.inc"
 #    include "../tests/routing/production_penalty_cases.inc"
 #    include "../tests/routing/production_random_oracle.inc"
+#    include "../tests/routing/production_incoming_oracle.inc"
 #    include "../tests/routing/production_state_solver.inc"
 #    include "../tests/routing/production_terminal_profile_cases.inc"
 #    include "../tests/routing/production_terminal_transition.inc"

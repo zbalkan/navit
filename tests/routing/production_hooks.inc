@@ -4,6 +4,7 @@
  */
 static int navit_routing_test_penalty_case(int case_id);
 static int navit_routing_test_differential(void);
+static int navit_routing_test_incoming_oracle(void);
 static int navit_routing_test_arrival_semantics(int case_id);
 static int navit_routing_test_adapter(int case_id);
 static int navit_routing_test_terminal_profile(int case_id);
@@ -23,6 +24,8 @@ int navit_routing_test_case(int case_id) {
         return navit_routing_test_adapter(case_id);
     if ((case_id >= 35 && case_id <= 41) || case_id == 46)
         return navit_routing_test_arrival_semantics(case_id);
+    if (case_id == 49)
+        return navit_routing_test_incoming_oracle();
     if (case_id == 34)
         return navit_routing_test_differential();
     if (case_id >= 26 && case_id <= 28)
