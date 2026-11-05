@@ -48,14 +48,37 @@ static int navit_routing_test_arrival_semantics(int case_id) {
         result = actual == expected;
 
         /* Another segment with the same item may incur penalty2. */
-        route_graph_add_segment(graph, b, c, &data);
-        other = b->start;
+        route_graph_add_segment(graph, c, b, &data);
+        other = c->start;
         b->seg = other;
         actual = route_arrival_step(&profile, first, 1, b, 0);
         if (result) {
             expected = 51;
             result = actual == expected;
         }
+    } else if (case_id == 37 || case_id == 38) {
+        /* Splitting a road item at a junction must permit continuing in
+         * the same direction without any turnaround penalty. */
+        route_graph_add_segment(graph, a, b, &data);
+        first = a->start;
+        route_graph_add_segment(graph, b, c, &data);
+        other = b->start;
+        b->seg = other;
+        b->value = 0;
+        if (case_id == 38)
+            profile.turn_around_penalty2 = 0;
+        actual = route_arrival_step(&profile, first, 1, b, 0);
+        expected = 1;
+        result = actual == expected;
+    } else if (case_id == 39) {
+        /* The same-item continuation must also survive full graph flooding. */
+        route_graph_add_segment(graph, a, b, &data);
+        route_graph_add_segment(graph, b, c, &data);
+        route_graph_seed_destination(graph, &profile, c, NULL, 0, 0);
+        route_graph_compute_shortest_path(graph, &profile, NULL);
+        actual = a->value;
+        expected = 2;
+        result = actual == expected;
     } else {
         expected = -1;
         actual = -1;
