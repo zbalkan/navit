@@ -930,8 +930,15 @@ if (EXTRA_DEFINES)
 	add_definitions("${EXTRA_DEFINES}")
 endif(EXTRA_DEFINES)
 
+option(NAVIT_ROUTING_TEST_HOOKS "Build deterministic tests against production routing internals" OFF)
+option(NAVIT_ROUTING_TURN_SHADOW "Run non-authoritative movement-state search alongside route extraction" OFF)
+option(NAVIT_ROUTING_ARRIVAL_EXPERIMENT "Opt into incomplete arrival-aware production routing (not release-ready)" OFF)
+
 if (NOT NAVIT_DEPENDENCY_ERROR)
 	message("\nSummary:\n")
+	message("Routing test hooks: ${NAVIT_ROUTING_TEST_HOOKS}")
+	message("Routing turn shadow: ${NAVIT_ROUTING_TURN_SHADOW}")
+	message("Experimental arrival routing: ${NAVIT_ROUTING_ARRIVAL_EXPERIMENT}")
 
 	set(SUMMARY_COMPONENTS ${ALL_PLUGINS} ${ALL_MODULE_PLUGINS} ${ALL_MODULES})
 	list(SORT SUMMARY_COMPONENTS)
@@ -980,6 +987,10 @@ if (NOT NAVIT_DEPENDENCY_ERROR)
 
 	message("\nTo configure your build use 'cmake -L' to find changeable variables and run cmake again with 'cmake -D <var-name>=<your value> ...'.")
 endif(NOT NAVIT_DEPENDENCY_ERROR)
+
+if(NAVIT_ROUTING_TEST_HOOKS)
+    enable_testing()
+endif()
 
 add_subdirectory (navit)
 add_subdirectory (man)

@@ -117,6 +117,56 @@ if (DEFINED NAVIT_COMPILE_FLAGS)
 	set_target_properties(${NAVIT_LIBNAME} PROPERTIES COMPILE_FLAGS "${NAVIT_COMPILE_FLAGS}")
 endif()
 
+if(NAVIT_ROUTING_ARRIVAL_EXPERIMENT OR NAVIT_ROUTING_TEST_HOOKS)
+    target_compile_definitions(${NAVIT_LIBNAME} PRIVATE NAVIT_ROUTING_ARRIVAL_EXPERIMENT=1)
+endif()
+if(NAVIT_ROUTING_ARRIVAL_EXPERIMENT)
+    message(WARNING "Experimental arrival-state routing is enabled; not validated for production navigation")
+endif()
+
+if(NAVIT_ROUTING_TURN_SHADOW AND NOT NAVIT_ROUTING_TEST_HOOKS)
+    message(WARNING "NAVIT_ROUTING_TURN_SHADOW runs a diagnostic search during route extraction; disable it for release builds")
+endif()
+if(NAVIT_ROUTING_TURN_SHADOW)
+    target_compile_definitions(${NAVIT_LIBNAME} PRIVATE NAVIT_ROUTING_TURN_SHADOW=1)
+endif()
+
+if(NAVIT_ROUTING_TEST_HOOKS)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        message(FATAL_ERROR "NAVIT_ROUTING_TEST_HOOKS currently supports GNU/Clang Linux builds")
+    endif()
+    target_compile_definitions(${NAVIT_LIBNAME} PRIVATE NAVIT_ROUTING_TEST_HOOKS=1)
+    add_executable(navit_routing_production_test
+        ${PROJECT_SOURCE_DIR}/tests/routing/test_production.c)
+    target_include_directories(navit_routing_production_test PRIVATE
+        ${PROJECT_SOURCE_DIR}/tests/routing)
+    target_link_libraries(navit_routing_production_test PRIVATE ${NAVIT_LIBNAME})
+    add_test(NAME routing_production_search COMMAND navit_routing_production_test)
+    add_executable(navit_routing_state_test
+        ${PROJECT_SOURCE_DIR}/tests/routing/test_state_production.c)
+    target_include_directories(navit_routing_state_test PRIVATE
+        ${PROJECT_SOURCE_DIR}/tests/routing)
+    target_link_libraries(navit_routing_state_test PRIVATE ${NAVIT_LIBNAME})
+    add_test(NAME routing_turn_state_candidate COMMAND navit_routing_state_test)
+    add_executable(navit_routing_turn_path_test
+        ${PROJECT_SOURCE_DIR}/tests/routing/test_turn_path.c)
+    target_include_directories(navit_routing_turn_path_test PRIVATE
+        ${PROJECT_SOURCE_DIR}/tests/routing)
+    target_link_libraries(navit_routing_turn_path_test PRIVATE ${NAVIT_LIBNAME})
+    add_test(NAME routing_turn_state_path COMMAND navit_routing_turn_path_test)
+    add_executable(navit_routing_movement_test
+        ${PROJECT_SOURCE_DIR}/tests/routing/test_movement.c)
+    target_include_directories(navit_routing_movement_test PRIVATE
+        ${PROJECT_SOURCE_DIR}/tests/routing)
+    target_link_libraries(navit_routing_movement_test PRIVATE ${NAVIT_LIBNAME})
+    add_test(NAME routing_turn_state_movement COMMAND navit_routing_movement_test)
+    add_executable(navit_routing_benchmark
+        ${PROJECT_SOURCE_DIR}/tests/routing/test_benchmark.c)
+    target_include_directories(navit_routing_benchmark PRIVATE
+        ${PROJECT_SOURCE_DIR}/tests/routing)
+    target_link_libraries(navit_routing_benchmark PRIVATE ${NAVIT_LIBNAME})
+endif()
+
 add_custom_command(
 	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/navit.dtd"
 	COMMENT "Copy navit.dtd to ${CMAKE_CURRENT_BINARY_DIR}/navit.dtd"
