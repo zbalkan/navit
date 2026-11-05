@@ -7,6 +7,9 @@ on:
       - 'tests/routing/benchmark_production.inc'
       - 'tests/routing/test_benchmark.c'
       - 'tests/routing/validate_benchmark_csv.py'
+      - 'tests/routing/summarize_benchmark.py'
+      - 'tests/routing/test_benchmark_reporting.py'
+      - 'tests/routing/BENCHMARK.md'
       - 'tests/routing/production_hooks.h'
       - 'CMakeLists.txt'
       - 'navit/route.h'
@@ -86,6 +89,15 @@ jobs:
           build-routing/navit/navit_routing_benchmark | tee routing-benchmark.csv
       - name: Validate benchmark CSV completeness
         run: python3 tests/routing/validate_benchmark_csv.py routing-benchmark.csv ${{ matrix.mode }}
+      - name: Generate benchmark statistics
+        run: >-
+          python3 tests/routing/summarize_benchmark.py routing-benchmark.csv
+          --mode ${{ matrix.mode }}
+          --json-out routing-benchmark-summary.json
+          --markdown-out routing-benchmark-summary.md
+      - name: Publish benchmark summary
+        shell: bash
+        run: cat routing-benchmark-summary.md >> "$GITHUB_STEP_SUMMARY"
       - name: Upload raw benchmark measurements
         if: always()
         uses: actions/upload-artifact@v4
@@ -94,5 +106,7 @@ jobs:
           path: |
             routing-benchmark.csv
             routing-benchmark-environment.txt
+            routing-benchmark-summary.json
+            routing-benchmark-summary.md
           if-no-files-found: warn
           retention-days: 30
