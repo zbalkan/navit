@@ -13,7 +13,13 @@ import statistics
 from collections import defaultdict
 from pathlib import Path
 
-from validate_benchmark_csv import MODES, MOVEMENT, REPETITIONS, validate
+from validate_benchmark_csv import (
+    MODES,
+    MOVEMENT,
+    REPETITIONS,
+    independently_expected_cost,
+    validate,
+)
 
 
 def nearest_rank(values: list[int], percentile: float) -> int:
@@ -50,6 +56,16 @@ def summarize(csv_path: Path, mode: str) -> dict:
         for size in (50, 200, 600, 1200, 2400):
             for operation in ("full", "increase", "decrease"):
                 key = (scenario, size, operation)
+                baseline_cost = independently_expected_cost(size, scenario, "full", MODES[mode])
+                changed_cost = independently_expected_cost(size, scenario, "increase", MODES[mode])
+                if operation == "full":
+                    cost_effect = "initial-search"
+                    optimal_cost_delta = None
+                else:
+                    before, after = ((baseline_cost, changed_cost) if operation == "increase"
+                                     else (changed_cost, baseline_cost))
+                    optimal_cost_delta = after - before
+                    cost_effect = "changed" if optimal_cost_delta else "unchanged"
                 reference = timings[(*key, MOVEMENT)]
                 point = timings[(*key, mode)]
                 ids = sorted(point)
@@ -65,6 +81,8 @@ def summarize(csv_path: Path, mode: str) -> dict:
                     "scenario": scenario,
                     "vertices": size,
                     "operation": operation,
+                    "optimal_cost_effect": cost_effect,
+                    "optimal_cost_delta": optimal_cost_delta,
                     "point": describe(point_ns),
                     "movement": describe(movement_ns),
                     "paired_median_movement_over_point": (
@@ -103,8 +121,8 @@ def to_markdown(report: dict) -> str:
         "Zero-duration denominators produce an undefined ratio. "
         "Do not compare speed ratios between different benchmark modes.",
         "",
-        "| Scenario | Vertices | Operation | Point median (ms) | Point p95 (ms) | Movement median (ms) | Movement p95 (ms) | Paired ratio |",
-        "| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |",
+        "| Scenario | Vertices | Operation | Optimal cost effect | Point median (ms) | Point p95 (ms) | Movement median (ms) | Movement p95 (ms) | Paired ratio |",
+        "| --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: |", 
     ]
     for item in report["results"]:
         point, movement = item["point"], item["movement"]
@@ -112,6 +130,7 @@ def to_markdown(report: dict) -> str:
         formatted_ratio = f"{ratio:.2f}x" if ratio is not None else "n/a"
         lines.append(
             f"| {item['scenario']} | {item['vertices']} | {item['operation']} "
+            f"| {item['optimal_cost_effect']} "
             f"| {point['median_ns'] / 1e6:.3f} | {point['p95_ns'] / 1e6:.3f} "
             f"| {movement['median_ns'] / 1e6:.3f} | {movement['p95_ns'] / 1e6:.3f} "
             f"| {formatted_ratio} |"
@@ -120,6 +139,9 @@ def to_markdown(report: dict) -> str:
         "",
         "## Interpretation limits",
         "",
+        "The optimal-cost effect reports whether the independently computed best cost "
+        "changes; it does not prove route identity changes or remains the same. "
+        "Cost-unchanged updates can be extremely cheap and must not be mistaken for reroutes. "
         "These are 25 samples per scenario/size/operation from a shared CI runner, "
         "not independent hardware trials. No statistical confidence interval, "
         "regression threshold, memory result, or map-backed navigation conclusion is claimed.",
