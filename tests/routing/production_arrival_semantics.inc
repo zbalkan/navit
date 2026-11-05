@@ -3,11 +3,11 @@ static int navit_routing_test_arrival_semantics(int case_id) {
     struct route_graph *graph = g_new0(struct route_graph, 1);
     struct vehicleprofile profile = { 0 };
     struct roadprofile road_profile = { 0 };
-    struct route_graph_point *a, *b, *c;
+    struct route_graph_point *a, *b, *c, *d;
     struct route_graph_segment *first, *other;
     struct route_graph_segment_data data = { 0 };
     struct item item = { 0 };
-    struct coord coords[] = { { 501, 501 }, { 502, 501 }, { 503, 501 } };
+    struct coord coords[] = { { 501, 501 }, { 502, 501 }, { 503, 501 }, { 504, 501 } };
     int result = 0;
     int actual, expected;
 
@@ -79,6 +79,30 @@ static int navit_routing_test_arrival_semantics(int case_id) {
         actual = a->value;
         expected = 2;
         result = actual == expected;
+    } else if (case_id == 40) {
+        /* Two open-road arrivals at B require different continuations.
+         * Reverse-direction same-item B->C is cheap for other arrivals,
+         * but forbidden following A->B; A must take B->D->C instead.
+         * Arrival class alone cannot encode this transition constraint.
+         */
+        struct route_turn_path oracle = { 0 };
+        d = route_graph_add_point(graph, &coords[3]);
+        profile.turn_around_penalty2 = 0;
+        route_graph_add_segment(graph, a, b, &data);
+        route_graph_add_segment(graph, c, b, &data);
+        item.id_lo = 102;
+        data.len = 2;
+        route_graph_add_segment(graph, b, d, &data);
+        item.id_lo = 103;
+        route_graph_add_segment(graph, d, c, &data);
+        route_graph_seed_destination(graph, &profile, c, NULL, 0, 0);
+        route_graph_compute_shortest_path(graph, &profile, NULL);
+        actual = a->value;
+        expected = 5;
+        result = route_turn_graph_path(graph, &profile, a, c, &oracle);
+        result = result && oracle.cost == expected;
+        result = result && actual == expected;
+        route_turn_path_clear(&oracle);
     } else {
         expected = -1;
         actual = -1;
