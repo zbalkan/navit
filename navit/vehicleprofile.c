@@ -78,8 +78,8 @@ static void vehicleprofile_set_attr_do(struct vehicleprofile *this_, struct attr
         this_->static_distance = attr->u.num;
         break;
     case attr_through_traffic_penalty:
-        if (attr->u.num < 0) {
-            dbg(lvl_warning, "Negative through-traffic penalty is invalid; keeping %d", this_->through_traffic_penalty);
+        if (attr->u.num < 0 || attr->u.num > INT_MAX) {
+            dbg(lvl_warning, "Out-of-range through-traffic penalty is invalid; keeping %d", this_->through_traffic_penalty);
             break;
         }
         this_->through_traffic_penalty = attr->u.num;
