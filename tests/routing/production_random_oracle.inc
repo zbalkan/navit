@@ -14,6 +14,7 @@ struct routing_differential_arc {
     int restricted;
     int next;
     struct route_graph_segment *segment;
+    int original_flags;
 };
 
 static unsigned int routing_differential_rand(unsigned int *seed) {
@@ -31,6 +32,7 @@ static void routing_differential_add_arc(struct routing_differential_arc *arcs,
     arcs[i].restricted = restricted;
     arcs[i].next = heads[to];
     arcs[i].segment = segment;
+    arcs[i].original_flags = segment->data.flags;
     heads[to] = i;
 }
 
@@ -88,7 +90,7 @@ static int navit_routing_test_differential(void) {
             struct vehicleprofile profile = { 0 };
             struct roadprofile road_profile = { 0 };
             struct route_graph_point **points;
-            struct route_graph_segment *added, *changed;
+            struct route_graph_segment *added, *changed, *last_closed = NULL;
             struct routing_differential_arc *arcs;
             struct route_graph_segment_data data = { 0 };
             struct item item = { 0 };
@@ -174,56 +176,97 @@ static int navit_routing_test_differential(void) {
                 if (mismatches >= 10)
                     break;
             }
-            /* Initial incremental-consistency smoke: increase or decrease a road
-             * cost, then compare incremental values with an independent oracle
-             * and a fresh full flood. Expand this to event batches in V2. */
+            /* Sequential 1–5-change batches exercise increases, decreases,
+             * closures, reopening and zero-cost edges. Check both the
+             * independent oracle and a fresh flood after every batch.
+             */
             if (seed_index < 128 && !mismatches && graph->route_segments) {
-                changed = graph->route_segments;
-                changed->data.len = seed_index % 2 == 0 ? changed->data.len + 5
-                                                          : (changed->data.len > 1 ? changed->data.len - 1 : 2);
-                for (i = 0; i < arc_count; ++i)
-                    if (arcs[i].segment == changed)
-                        arcs[i].cost = changed->data.len;
-                route_graph_point_update(&profile, changed->start, graph->heap);
-                route_graph_point_update(&profile, changed->end, graph->heap);
-                route_graph_compute_shortest_path(graph, &profile, NULL);
-                routing_differential_oracle(n, n - 1, profile.through_traffic_penalty,
-                                             heads, arcs, distances);
+                int round;
                 incremental = g_new(int, 2 * n);
-                for (i = 0; i < n; ++i) {
-                    int arrival;
-                    for (arrival = 0; arrival <= 1; ++arrival) {
-                        expected = distances[2 * i + arrival];
-                        observed = arrival && profile.through_traffic_penalty
-                                   ? points[i]->restricted_value : points[i]->value;
-                        incremental[2 * i + arrival] = observed;
-                        if (observed != expected) {
-                            fprintf(stderr,
-                                    "DIFF incremental seed=%d P=%d node=%d arrival=%d expected=%d actual=%d\n",
-                                    seed_index, profile.through_traffic_penalty, i, arrival, expected, observed);
-                            mismatches++;
+                for (round = 1; round <= 5 && !mismatches; ++round) {
+                    int change;
+                    for (change = 0; change < round; ++change) {
+                        int step = (round + change) % 5;
+                        int which = (int)(routing_differential_rand(&random_state) % (unsigned int)edge_count);
+                        changed = graph->route_segments;
+                        while (which-- > 0 && changed->next)
+                            changed = changed->next;
+                        if (step == 3 && last_closed)
+                            changed = last_closed;
+                        switch (step) {
+                        case 0:
+                            if (changed->data.len < INT_MAX - 9)
+                                changed->data.len += 5;
+                            break;
+                        case 1:
+                            changed->data.len = changed->data.len > 1 ? changed->data.len - 1 : 1;
+                            break;
+                        case 2:
+                            changed->data.flags |= AF_ONEWAY | AF_ONEWAYREV;
+                            last_closed = changed;
+                            break;
+                        case 3:
+                            for (i = 0; i < arc_count; ++i)
+                                if (arcs[i].segment == changed) {
+                                    changed->data.flags = arcs[i].original_flags;
+                                    break;
+                                }
+                            last_closed = NULL;
+                            break;
+                        default:
+                            changed->data.len = 0;
+                            break;
+                        }
+                        for (i = 0; i < arc_count; ++i) {
+                            if (arcs[i].segment == changed) {
+                                int closed = (changed->data.flags & (AF_ONEWAY | AF_ONEWAYREV))
+                                             == (AF_ONEWAY | AF_ONEWAYREV);
+                                /* Navit normalizes a zero-duration segment to one tick. */
+                                arcs[i].cost = closed ? INT_MAX : (changed->data.len ? changed->data.len : 1);
+                            }
+                        }
+                        route_graph_point_update(&profile, changed->start, graph->heap);
+                        route_graph_point_update(&profile, changed->end, graph->heap);
+                    }
+                    route_graph_compute_shortest_path(graph, &profile, NULL);
+                    routing_differential_oracle(n, n - 1, profile.through_traffic_penalty,
+                                                 heads, arcs, distances);
+                    for (i = 0; i < n; ++i) {
+                        int arrival;
+                        for (arrival = 0; arrival <= 1; ++arrival) {
+                            expected = distances[2 * i + arrival];
+                            observed = arrival && profile.through_traffic_penalty
+                                       ? points[i]->restricted_value : points[i]->value;
+                            incremental[2 * i + arrival] = observed;
+                            if (observed != expected) {
+                                fprintf(stderr,
+                                        "DIFF incremental seed=%d P=%d round=%d node=%d arrival=%d oracle=%d got=%d\n",
+                                        seed_index, profile.through_traffic_penalty, round, i, arrival,
+                                        expected, observed);
+                                mismatches++;
+                            }
                         }
                     }
-                }
-                route_graph_reset(graph);
-                route_graph_seed_destination(graph, &profile, points[n - 1], NULL, 0, 0);
-                route_graph_compute_shortest_path(graph, &profile, NULL);
-                for (i = 0; i < n; ++i) {
-                    int arrival;
-                    for (arrival = 0; arrival <= 1; ++arrival) {
-                        expected = distances[2 * i + arrival];
-                        observed = arrival && profile.through_traffic_penalty
-                                   ? points[i]->restricted_value : points[i]->value;
-                        if (observed != expected || observed != incremental[2 * i + arrival]) {
-                            fprintf(stderr,
-                                    "DIFF fresh seed=%d P=%d node=%d arrival=%d oracle=%d incremental=%d fresh=%d\n",
-                                    seed_index, profile.through_traffic_penalty, i, arrival,
-                                    expected, incremental[2 * i + arrival], observed);
-                            mismatches++;
+                    route_graph_reset(graph);
+                    route_graph_seed_destination(graph, &profile, points[n - 1], NULL, 0, 0);
+                    route_graph_compute_shortest_path(graph, &profile, NULL);
+                    for (i = 0; i < n; ++i) {
+                        int arrival;
+                        for (arrival = 0; arrival <= 1; ++arrival) {
+                            expected = distances[2 * i + arrival];
+                            observed = arrival && profile.through_traffic_penalty
+                                       ? points[i]->restricted_value : points[i]->value;
+                            if (observed != expected || observed != incremental[2 * i + arrival]) {
+                                fprintf(stderr,
+                                        "DIFF fresh seed=%d P=%d round=%d node=%d arrival=%d oracle=%d incremental=%d fresh=%d\n",
+                                        seed_index, profile.through_traffic_penalty, round, i, arrival,
+                                        expected, incremental[2 * i + arrival], observed);
+                                mismatches++;
+                            }
                         }
                     }
+                    update_trials++;
                 }
-                update_trials++;
             }
             trials++;
             route_graph_free_segments(graph);
