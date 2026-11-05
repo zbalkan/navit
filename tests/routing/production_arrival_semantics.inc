@@ -79,6 +79,13 @@ static int navit_routing_test_arrival_semantics(int case_id) {
         actual = a->value;
         expected = 2;
         result = actual == expected;
+    } else if (case_id == 46) {
+        /* Cost accumulation must saturate at the unreachable sentinel. */
+        actual = route_value_add(INT_MAX - 5, 10);
+        expected = INT_MAX;
+        result = actual == expected;
+        result = result && route_value_add(INT_MAX, 1) == INT_MAX;
+        result = result && route_value_add(2, 3) == 5;
     } else if (case_id == 41) {
         struct attr invalid = { 0 };
         struct attr queried = { 0 };

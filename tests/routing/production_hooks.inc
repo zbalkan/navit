@@ -21,7 +21,7 @@ int navit_routing_test_case(int case_id) {
         return navit_routing_test_terminal_profile(case_id);
     if (case_id == 42)
         return navit_routing_test_adapter(case_id);
-    if (case_id >= 35 && case_id <= 41)
+    if ((case_id >= 35 && case_id <= 41) || case_id == 46)
         return navit_routing_test_arrival_semantics(case_id);
     if (case_id == 34)
         return navit_routing_test_differential();

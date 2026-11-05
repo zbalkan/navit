@@ -2190,14 +2190,15 @@ static int route_graph_segment_match(struct route_graph_segment *s1, struct rout
  * If any of the two arguments is `INT_MAX`, then `INT_MAX` is returned; else the sum of the two
  * arguments is returned.
  *
- * Note that this currently does not cover cases in which both arguments are less than `INT_MAX` but add
- * up to `val1 + val2 >= INT_MAX`. With Navit’s internal cost definition, `INT_MAX` (2^31) is equivalent
- * to approximately 7 years, making this unlikely to become a real issue.
+ * Nonnegative costs are saturated before addition to avoid signed overflow.
+ * Negative costs are invalid for the nonnegative shortest-path search.
  */
 static int route_value_add(int val1, int val2) {
     if (val1 == INT_MAX)
         return INT_MAX;
     if (val2 == INT_MAX)
+        return INT_MAX;
+    if (val1 < 0 || val2 < 0 || val1 > INT_MAX - val2)
         return INT_MAX;
     return val1 + val2;
 }
