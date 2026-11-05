@@ -2,7 +2,7 @@ name: Routing performance validation
 
 on:
   push:
-    branches: ['feat/routing-*', 'fix/routing-*']
+    branches: ['feat/routing-*', 'fix/routing-*', 'bench/routing-*']
     paths:
       - 'tests/routing/benchmark_production.inc'
       - 'tests/routing/test_benchmark.c'
