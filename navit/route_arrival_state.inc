@@ -32,10 +32,17 @@ static int route_arrival_step(struct vehicleprofile *profile,
     /* Reversing the exact same segment is forbidden even with penalty2. */
     if (successor == s)
         return INT_MAX;
+    /* Continuing forward on another piece of the same road is not a
+     * turnaround. Apply penalty2 only when the direction reverses.
+     * The exact physical-segment reversal is rejected above.
+     */
     if (successor && item_is_equal(s->data.item, successor->data.item)) {
-        if (profile->turn_around_penalty2 <= 0)
-            return INT_MAX;
-        extra = profile->turn_around_penalty2;
+        int successor_direction = successor->start == neighbor ? 1 : -1;
+        if (direction != successor_direction) {
+            if (profile->turn_around_penalty2 <= 0)
+                return INT_MAX;
+            extra = profile->turn_around_penalty2;
+        }
     }
     if (incoming_restricted && !outgoing_restricted) {
         if (profile->through_traffic_penalty < 0
