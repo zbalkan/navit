@@ -78,7 +78,7 @@ struct route_graph_point {
     struct route_graph_segment *dst_seg; /**< For points close to the destination, this is the segment over which the
                                           * destination can be reached directly */
     int dst_fraction;                    /**< Percent of terminal segment traversed; -1 if no terminal candidate. */
-    int restricted_dst_val;              /**< Restricted-arrival terminal cost. */
+    int restricted_dst_val;              /**< Restricted-arrival terminal cost; INT_MAX means none. */
     int restricted_dst_fraction;         /**< Restricted-arrival terminal segment percentage. */
     struct route_graph_segment *restricted_dst_seg; /**< Restricted-arrival terminal segment. */
     struct coord c;                                 /**< Coordinates of this point */

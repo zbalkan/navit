@@ -78,7 +78,13 @@ static int navit_routing_test_movement_semantics(int case_id) {
              * each terminal's remaining partial-segment travel.
              */
             b->dst_val = 5;
+            b->restricted_dst_val = 5;
+            b->restricted_dst_seg = b->dst_seg;
+            b->restricted_dst_fraction = -1;
             c->dst_val = 1;
+            c->restricted_dst_val = 1;
+            c->restricted_dst_seg = c->dst_seg;
+            c->restricted_dst_fraction = -1;
             result = route_turn_graph_path_to_terminals(graph, &profile, a, &path);
             observed = path.cost;
             result = result && observed == 3 && path.terminal == c
@@ -88,6 +94,7 @@ static int navit_routing_test_movement_semantics(int case_id) {
                  * terminal without requiring the road graph to change.
                  */
                 c->dst_val = 10;
+                c->restricted_dst_val = 10;
                 route_turn_path_clear(&path);
                 result = route_turn_graph_path_to_terminals(graph, &profile, a, &path);
                 observed = path.cost;

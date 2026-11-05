@@ -63,8 +63,14 @@ static int navit_routing_test_terminal_transition(int case_id) {
     if (case_id == 28)
         bc->data.flags |= AF_ONEWAYREV; /* disallow forward terminal movement */
     b->dst_val = 1;
+    b->restricted_dst_seg = b->dst_seg;
+    b->restricted_dst_val = 101;
+    b->restricted_dst_fraction = -1;
     d->dst_seg = dg;
     d->dst_val = 1;
+    d->restricted_dst_seg = dg;
+    d->restricted_dst_val = 1;
+    d->restricted_dst_fraction = -1;
 
     result = route_turn_graph_path_to_terminals(graph, &profile, a, &path);
     result = result && path.cost == 4 && path.terminal == d

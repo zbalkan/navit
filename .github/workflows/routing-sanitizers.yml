@@ -41,6 +41,7 @@ jobs:
           -DCMAKE_EXE_LINKER_FLAGS="-no-pie -fsanitize=address,undefined"
           -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=address,undefined"
           -DNAVIT_ROUTING_TEST_HOOKS=ON
+          -DNAVIT_ROUTING_ARRIVAL_EXPERIMENT=ON
           -DSVG2PNG=OFF -DXPM2PNG=OFF
           -Dgraphics/qt_qpainter:BOOL=FALSE -Dgui/qml:BOOL=FALSE
       - name: Build candidate tests
