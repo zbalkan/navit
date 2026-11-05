@@ -153,7 +153,7 @@ int navit_routing_benchmark(int n, int repeats, int shortcuts) {
         int reverse_order = (repetition & 1) != 0;
         changed->data.len = 10;
         route_graph_reset(graph);
-        route_graph_seed_destination(graph, &profile, points[n - 1], NULL, 0);
+        route_graph_seed_destination(graph, &profile, points[n - 1], NULL, 0, 0);
 
         failed |= routing_benchmark_measure(graph, &profile, points[0], points[n - 1],
                                             NULL, scenario, n, edges, repetition, "full",

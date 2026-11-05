@@ -79,8 +79,7 @@ static void vehicleprofile_set_attr_do(struct vehicleprofile *this_, struct attr
         break;
     case attr_through_traffic_penalty:
         if (attr->u.num < 0) {
-            dbg(lvl_warning, "Negative through-traffic penalty is invalid; keeping %d",
-                this_->through_traffic_penalty);
+            dbg(lvl_warning, "Negative through-traffic penalty is invalid; keeping %d", this_->through_traffic_penalty);
             break;
         }
         this_->through_traffic_penalty = attr->u.num;

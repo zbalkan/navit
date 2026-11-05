@@ -81,8 +81,8 @@ struct route_graph_point {
     int restricted_dst_val;              /**< Restricted-arrival terminal cost. */
     int restricted_dst_fraction;         /**< Restricted-arrival terminal segment percentage. */
     struct route_graph_segment *restricted_dst_seg; /**< Restricted-arrival terminal segment. */
-    struct coord c;                      /**< Coordinates of this point */
-    int flags;                           /**< Flags for this point (e.g. traffic distortion) */
+    struct coord c;                                 /**< Coordinates of this point */
+    int flags;                                      /**< Flags for this point (e.g. traffic distortion) */
 };
 
 /**

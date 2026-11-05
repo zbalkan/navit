@@ -4,6 +4,9 @@ on:
   push:
     branches: [trunk, 'test/**', 'feat/routing-*', 'fix/routing-*']
     paths:
+      - 'navit/route.h'
+      - 'navit/route_protected.h'
+      - 'navit/attr.h'
       - 'navit/route.c'
       - 'navit/route_arrival_state.inc'
       - 'navit/CMakeLists.txt'

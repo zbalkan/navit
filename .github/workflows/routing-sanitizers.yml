@@ -6,6 +6,7 @@ on:
     paths:
       - 'CMakeLists.txt'
       - 'navit/route_protected.h'
+      - 'navit/route.h'
       - 'navit/attr.h'
       - 'navit/route.c'
       - 'navit/route_arrival_state.inc'
