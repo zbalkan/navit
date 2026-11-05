@@ -3021,6 +3021,14 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
     /* Diagnostic only: never change the legacy route or graph state. */
     route_turn_shadow_route(this, profile, pos, dst);
 #endif
+    /* Correctness-first selection: arrival class alone cannot express an
+     * incoming-segment turnaround rule. Choose exact directed movements
+     * before converting their plan to ordinary Navit route geometry.
+     * Incremental movement-state caching remains future work.
+     */
+    if (ROUTE_ARRIVAL_ENABLED(profile))
+        return route_path_new_movement(this, oldpath, pos, dst, profile);
+
     while ((s = route_graph_get_segment(this, pos->street, s))) {
         val = route_value_seg(profile, NULL, s, 2);
         if (val != INT_MAX && s->end->value != INT_MAX) {
