@@ -40,11 +40,16 @@ extern "C" {
 
 #define RSD_MAXSPEED(x) *((int *)route_segment_data_field_pos((x), attr_maxspeed))
 
+/* Distinguish the two arrival classes in one globally ordered heap. */
+struct route_arrival_queue_item {
+    struct route_graph_point *point;
+    unsigned char restricted;
+};
+
 /**
  * @brief A point in the route graph
  *
- * This represents a point in the route graph. A point usually connects two or more segments,
- * but there are also points which don't do that (e.g. at the end of a dead-end).
+ * A point connects route graph segments, including terminal dead-ends.
  */
 struct route_graph_point {
     struct route_graph_point *hash_next; /**< Pointer to a chained hashlist of all route_graph_points with this hash */
@@ -59,12 +64,23 @@ struct route_graph_point {
     int value;                           /**< The cost at which one can reach the destination from this point on.
                                           *  {@code INT_MAX} indicates that the destination is unreachable from this
                                           *  point, or that this point has not yet been examined. */
+    struct route_arrival_queue_item queue[2];   /**< Stable heap payloads for each arrival class. */
+    int restricted_value;                       /**< Cost with a restricted incoming movement. */
+    int restricted_rhs;                         /**< Lookahead cost for a restricted arrival. */
+    struct route_graph_segment *restricted_seg; /**< Successor for a restricted arrival. */
+    struct fibheap_el *restricted_el;           /**< Restricted-arrival heap element. */
+    int policy_dirty;                           /**< Unrestricted successor changed without a cost change. */
+    int restricted_policy_dirty;                /**< Restricted successor changed without a cost change. */
     int rhs;                             /**< Lookahead value based on neighbors’ `value`; used for recalculation and
                                           *   equal to `value` after the route graph has been flooded. */
     int dst_val;                         /**< For points close to the destination, this is the cost of the point if it
                                           *   is the last in the graph; `INT_MAX` for all other points. */
     struct route_graph_segment *dst_seg; /**< For points close to the destination, this is the segment over which the
                                           * destination can be reached directly */
+    int dst_fraction;                    /**< Percent of terminal segment traversed; -1 if no terminal candidate. */
+    int restricted_dst_val;              /**< Restricted-arrival terminal cost. */
+    int restricted_dst_fraction;         /**< Restricted-arrival terminal segment percentage. */
+    struct route_graph_segment *restricted_dst_seg; /**< Restricted-arrival terminal segment. */
     struct coord c;                      /**< Coordinates of this point */
     int flags;                           /**< Flags for this point (e.g. traffic distortion) */
 };
@@ -154,6 +170,7 @@ struct route_graph {
         *route_segments; /**< Pointer to the first route_graph_segment in the linked list of all segments */
     struct route_graph_segment *avoid_seg; /**< Segment to which a turnaround penalty (if active) applies */
     struct fibheap *heap;                  /**< Priority queue for points to be expanded */
+
 #define HASH_SIZE 8192
     struct route_graph_point *hash[HASH_SIZE]; /**< A hashtable containing all route_graph_points in this graph */
 };

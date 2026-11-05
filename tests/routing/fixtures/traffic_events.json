@@ -1,0 +1,1 @@
+{"schema_version":1,"id":"INCR-002-004","start":"A","goal":"D","roads":[{"id":"ab","from":"A","to":"B","cost":2},{"id":"bd","from":"B","to":"D","cost":3},{"id":"ac","from":"A","to":"C","cost":4},{"id":"cd","from":"C","to":"D","cost":4}],"events":[{"road":"bd","cost":10},{"road":"bd","cost":1},{"road":"bd","closed":true},{"road":"bd","closed":false}]}

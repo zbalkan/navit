@@ -1,0 +1,43 @@
+name: Turn-aware routing candidate
+
+on:
+  push:
+    branches: ['feat/routing-*', 'fix/routing-*']
+    paths:
+      - 'navit/attr.h'
+      - 'navit/route.h'
+      - 'navit/route_protected.h'
+      - 'navit/route.c'
+      - 'navit/route_arrival_state.inc'
+      - 'navit/route_turn_state.inc'
+      - 'navit/route_turn_plan.inc'
+      - 'navit/CMakeLists.txt'
+      - 'CMakeLists.txt'
+      - 'tests/routing/**'
+      - '.github/workflows/routing-candidate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  turn-aware-candidate:
+    name: State-expanded production graph prototype
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
+    steps:
+      - name: Install checkout tools
+        run: apt-get update && apt-get install -y --no-install-recommends git ca-certificates
+      - uses: actions/checkout@v4
+      - name: Install Navit build requirements
+        run: |
+          bash scripts/setup_common_requirements.sh
+          apt-get install -y --no-install-recommends libpng-dev libfreetype6-dev libdbus-glib-1-dev libgtk2.0-dev cmake
+      - name: Configure routing candidate
+        run: cmake -S . -B build-routing -DNAVIT_ROUTING_TEST_HOOKS=ON -DNAVIT_ROUTING_TURN_SHADOW=ON -DSVG2PNG=OFF -DXPM2PNG=OFF -Dgraphics/qt_qpainter:BOOL=FALSE -Dgui/qml:BOOL=FALSE
+      - name: Compile state-expanded candidate
+        run: cmake --build build-routing --target navit_routing_state_test navit_routing_turn_path_test navit_routing_movement_test --parallel 2
+      - name: Execute candidate CTest
+        run: ctest --test-dir build-routing --no-tests=error --output-on-failure -R routing_turn_state_
+
