@@ -70,6 +70,8 @@ static int navit_routing_test_adapter_multisegment(void) {
      * production route_path_add_item_from_graph() can reuse old geometry.
      */
     oldpath = g_new0(struct route_path, 1);
+    /* route_path_destroy decrements in_use before freeing the path object. */
+    oldpath->in_use = 1;
     oldpath->path_hash = item_hash_new();
     route_path_add_line(oldpath, &b->c, &d->c, 2);
     oldpath->path->direction = 1;
