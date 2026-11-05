@@ -2,7 +2,9 @@
 
 This CI benchmark is a synthetic, correctness-gated comparison, not a production navigation result. Both solvers use the same actual Navit graph, with 50, 200, 600, 1200 or 2400 vertices, either one-way chains or two-hop shortcuts.
 
-Legacy LPA* is measured as initial backward propagation or incremental updates. The movement-state candidate performs full Dijkstra search for **all** operations; it does not incrementally repair routes. Graph construction, reset, oracle evaluation and CSV output are excluded from timings. For legacy incremental changes, timing includes local LPA* update preparation and shortest-path propagation; for the candidate it includes full recomputation. Both represent the processing cost of the already-applied road change.
+The workflow runs separately labeled modes. `legacy` compiles with the arrival-state experiment disabled and uses through-traffic penalty 0. `arrival-experiment` explicitly enables the experimental arrival-state solver with penalty 9,000. Because these modes have different cost models, their wall times are not directly comparable.
+
+The point-based solver in each mode is measured as initial backward propagation or incremental updates. The movement-state candidate performs full Dijkstra search for **all** operations; it does not incrementally repair routes. Graph construction, reset, oracle evaluation and CSV output are excluded from timings. For legacy incremental changes, timing includes local LPA* update preparation and shortest-path propagation; for the candidate it includes full recomputation. Both represent the processing cost of the already-applied road change.
 
 Each topology/size combination runs three unreported warm-ups, then 25 repetitions. Every repetition measures full computation, road-cost increase (10 to 30), and subsequent decrease (30 to 10). The algorithm measurement order alternates across repetitions.
 
@@ -20,5 +22,5 @@ An independent dynamic-programming oracle calculates route costs on the known fo
 
 scenario,vertices,edges,repeat,implementation,operation,elapsed_ns,cost,oracle_cost,correctness
 
-Operations are full, increase, and decrease. Implementations are legacy and movement. A full successful run produces 1500 measurement rows (2 topologies × 5 sizes × 25 repetitions × 3 operations × 2 implementations).
-The workflow builds the benchmark in Release mode and uploads the CSV and environment file even when the benchmark step fails. A build failure before benchmark execution cannot produce a CSV.
+Operations are full, increase, and decrease. Implementation names are `legacy` and `movement` in the baseline artifact, or `arrival-experiment` and `movement` in the experiment artifact. Each successful artifact produces 1500 measurement rows (2 topologies × 5 sizes × 25 repetitions × 3 operations × 2 implementations).
+Each benchmark mode builds in Release mode and uploads a separate mode-labeled CSV artifact and environment file even when the benchmark step fails. A build failure before benchmark execution cannot produce a CSV.

@@ -38,7 +38,11 @@ permissions:
 
 jobs:
   benchmark:
-    name: Synthetic full-search versus update cost
+    name: Synthetic full-search versus update cost (${{ matrix.mode }})
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [legacy, arrival-experiment]
     runs-on: ubuntu-latest
     container:
       image: debian:bookworm
@@ -51,7 +55,13 @@ jobs:
           bash scripts/setup_common_requirements.sh
           apt-get install -y --no-install-recommends libpng-dev libfreetype6-dev libdbus-glib-1-dev libgtk2.0-dev cmake python3
       - name: Configure benchmark build
-        run: cmake -S . -B build-routing -DCMAKE_BUILD_TYPE=Release -DNAVIT_ROUTING_TEST_HOOKS=ON -DNAVIT_ROUTING_ARRIVAL_EXPERIMENT=ON -DSVG2PNG=OFF -DXPM2PNG=OFF -Dgraphics/qt_qpainter:BOOL=FALSE -Dgui/qml:BOOL=FALSE
+        shell: bash
+        run: |
+          options=()
+          if [[ "${{ matrix.mode }}" == "arrival-experiment" ]]; then
+            options+=(-DNAVIT_ROUTING_ARRIVAL_EXPERIMENT=ON)
+          fi
+          cmake -S . -B build-routing -DCMAKE_BUILD_TYPE=Release -DNAVIT_ROUTING_TEST_HOOKS=ON "${options[@]}" -DSVG2PNG=OFF -DXPM2PNG=OFF -Dgraphics/qt_qpainter:BOOL=FALSE -Dgui/qml:BOOL=FALSE
       - name: Build benchmark executable
         run: cmake --build build-routing --target navit_routing_benchmark --parallel 2
       - name: Record benchmark environment
@@ -66,6 +76,7 @@ jobs:
             grep -m1 'cpu MHz' /proc/cpuinfo || true
             cmake --version | head -n 1
             cc --version | head -n 1
+            printf 'routing_mode=%s\n' '${{ matrix.mode }}'
             printf 'build_type=Release\n'
           } > routing-benchmark-environment.txt
       - name: Run correctness-gated benchmark
@@ -74,12 +85,12 @@ jobs:
           set -o pipefail
           build-routing/navit/navit_routing_benchmark | tee routing-benchmark.csv
       - name: Validate benchmark CSV completeness
-        run: python3 tests/routing/validate_benchmark_csv.py routing-benchmark.csv
+        run: python3 tests/routing/validate_benchmark_csv.py routing-benchmark.csv ${{ matrix.mode }}
       - name: Upload raw benchmark measurements
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: navit-routing-benchmark-csv
+          name: navit-routing-benchmark-${{ matrix.mode }}-csv
           path: |
             routing-benchmark.csv
             routing-benchmark-environment.txt

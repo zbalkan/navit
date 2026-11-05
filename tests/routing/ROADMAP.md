@@ -2,6 +2,32 @@
 
 Status: **work in progress; not merge-ready**. Updated 5 November 2026 following test-first implementation and single-heap validation.
 
+## Execution boundary: correctness first, performance only after approval
+
+**Current work authorization:** Implement, test and document correctness repairs. Do not begin performance optimization, timing comparisons, real-map benchmarks, profiling or performance-acceptance decisions until the repository owner explicitly approves the performance phase. Existing CI workflows that run automatically are not evidence of permission to modify or interpret performance work.
+
+| Gate | Correctness issue | Proof required | Status |
+| --- | --- | --- | --- |
+| C01 | Through-traffic restricted/unrestricted arrivals choose appropriate route (cases 4–6), including production P=9000 | Production regressions plus independent compiled oracle | Passing established fixtures; retain |
+| C02 | Incremental propagation converges to fresh flood across cost rises, reductions, closures, reopenings, multiple updates and zero-cost segments | Seeded oracle with 1–5 changes per batch and repeatable failing seeds | Partial: single-edge update trials |
+| C03 | Exact segment reversal and same-item/different-segment semantics cannot be reconstructed from arrival **class alone** | Independent incoming-segment oracle and discriminating counterexample; implement precise transition-state correction or explicitly restrict the supported semantics | **Open — structural correctness blocker** |
+| C04 | Correct destination terminal selection for multiple partial-edge candidates, P=100/9000, and no overflow | Named destination fixtures plus oracle | Partial |
+| C05 | Route extraction respects incoming class, directions, repeated-junction labels, no forbidden reversal, and independent path-cost calculation | Graph-backed path differential tests | Partial |
+| C06 | Source inside restricted zone follows documented D1-b decision; no unexpected ETA or remaining-distance accounting | Origin fixture and audit of displayed-time consumers | Open |
+| C07 | Self-loop, exact reversal, terminal restriction, one-way, turn restrictions, traffic distortions and integer saturation | Named tests, sanitized runs, cross-platform builds | Partial |
+| C08 | P=0 and P>0 both preserve semantics, do not diverge due to dual code paths | Differential tests at P=0/100/9000 and legacy baseline | Partial; do not refactor for speed |
+| C09 | All correctness workflows pass on **the same final HEAD** | Production regression, independent oracle, movement candidate, ASan/UBSan and platform compile | Pending final commit |
+
+**Correctness exit:** All C01–C09 substantiated with tests and HEAD-specific links; any impossibility from reduced state space must be resolved in code, not waived by passing class-only random graphs. No merge-ready claim before then.
+
+**Approval checkpoint:** After correctness exit, publish a findings table with remaining risks, code/CI references and a proposed measurement plan. Stop there and request explicit approval before starting performance work.
+
+## Deferred performance phase — not authorized yet
+
+After approval, profile default P=9000 initial floods and incremental updates; compare heap extractions, wall time and peak graph memory against baseline. Then test representative OSM/maptool data and negotiate acceptance budgets. Do not infer performance from correctness-only benchmarks or treat green workflow status as performance acceptance.
+
+---
+
 ## Scope and branch policy
 
 **Baseline:** `feat/routing-turn-state-green` at `a2b60d489fe2`.

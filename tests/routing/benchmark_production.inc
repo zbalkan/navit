@@ -60,6 +60,11 @@ static int routing_benchmark_measure(struct route_graph *graph,
     long long elapsed[2];
     int cost[2], order, which;
     int good;
+#ifdef NAVIT_ROUTING_ARRIVAL_EXPERIMENT
+    const char *point_search_name = "arrival-experiment";
+#else
+    const char *point_search_name = "legacy";
+#endif
 
     for (order = 0; order < 2; ++order) {
         /* Alternate measurement order between iterations to reduce bias. */
@@ -83,8 +88,8 @@ static int routing_benchmark_measure(struct route_graph *graph,
     good = cost[0] == expected && cost[1] == expected;
     /* Even a warm-up mismatch must leave a machine-readable failure row. */
     if (emit || !good) {
-        printf("%s,%d,%d,%d,legacy,%s,%lld,%d,%d,%s\n",
-               scenario, n, edges, repetition, operation, elapsed[0], cost[0],
+        printf("%s,%d,%d,%d,%s,%s,%lld,%d,%d,%s\n",
+               scenario, n, edges, repetition, point_search_name, operation, elapsed[0], cost[0],
                expected, cost[0] == expected ? "pass" : "fail");
         printf("%s,%d,%d,%d,movement,%s,%lld,%d,%d,%s\n",
                scenario, n, edges, repetition, operation, elapsed[1], cost[1],
@@ -93,8 +98,8 @@ static int routing_benchmark_measure(struct route_graph *graph,
     if (!good)
         fprintf(stderr,
                 "ERROR routing benchmark %s n=%d repetition=%d operation=%s: "
-                "oracle=%d legacy=%d movement=%d\n",
-                scenario, n, repetition, operation, expected, cost[0], cost[1]);
+                "oracle=%d %s=%d movement=%d\n",
+                scenario, n, repetition, operation, expected, point_search_name, cost[0], cost[1]);
     return good ? 0 : 1;
 }
 
@@ -111,7 +116,13 @@ int navit_routing_benchmark(int n, int repeats, int shortcuts) {
     int i, repetition, edges = 0, failed = 0;
 
     graph->heap = fh_makekeyheap();
+#ifdef NAVIT_ROUTING_ARRIVAL_EXPERIMENT
     profile.through_traffic_penalty = 9000;
+#else
+    /* Preserve the original legacy baseline while separately measuring
+     * restricted-arrival routing under its production-default penalty. */
+    profile.through_traffic_penalty = 0;
+#endif
     profile.flags_forward_mask = AF_ONEWAYREV;
     profile.flags_reverse_mask = AF_ONEWAY;
     profile.roadprofile_hash = g_hash_table_new(g_direct_hash, g_direct_equal);

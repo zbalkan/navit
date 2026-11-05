@@ -10,6 +10,10 @@ static int navit_routing_test_partial_start(int case_id);
 
 static int navit_routing_test_terminal_transition(int case_id);
 
+int navit_routing_test_point_size(void) {
+    return (int)sizeof(struct route_graph_point);
+}
+
 int navit_routing_test_case(int case_id) {
     if (case_id == 35 || case_id == 36)
         return navit_routing_test_arrival_semantics(case_id);

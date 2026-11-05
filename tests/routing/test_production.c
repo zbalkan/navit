@@ -8,7 +8,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Usage: navit_routing_production_test [--legacy-smoke]\n");
     return 2;
   }
-  printf("sizeof(struct route_graph_point)=%zu\n", sizeof(struct route_graph_point));
+  printf("routing-point-size=%d\n", navit_routing_test_point_size());
   /* 29: INCR-006a scratch consistency; 31–33: default P=9000. */
   const int cases[] = {1, 2, 3, 4, 5, 6, 29, 31, 32, 33, 34, 35, 36};
   int failures = 0;
