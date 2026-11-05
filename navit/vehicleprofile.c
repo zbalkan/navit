@@ -239,6 +239,14 @@ int vehicleprofile_get_attr(struct vehicleprofile *this_, enum attr_type type, s
 }
 
 int vehicleprofile_set_attr(struct vehicleprofile *this_, struct attr *attr) {
+    /* Reject invalid settings before persisting them in the attribute list.
+     * Otherwise get_attr() reports the negative input while the effective
+     * routing penalty silently retains its previous nonnegative value.
+     */
+    if (attr->type == attr_through_traffic_penalty && attr->u.num < 0) {
+        dbg(lvl_warning, "Negative through-traffic penalty %d rejected", attr->u.num);
+        return 0;
+    }
     vehicleprofile_set_attr_do(this_, attr);
     this_->attrs = attr_generic_set_attr(this_->attrs, attr);
     return 1;
