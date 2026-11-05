@@ -102,24 +102,60 @@ static int navit_routing_test_arrival_semantics(int case_id) {
          * but forbidden following A->B; A must take B->D->C instead.
          * Arrival class alone cannot encode this transition constraint.
          */
-        struct route_turn_path oracle = { 0 };
+        struct route_turn_path oracle = { 0 }, selected = { 0 };
+        struct street_data *start_street, *destination_street;
+        struct route_info position = { 0 }, destination = { 0 };
+        struct route_graph_segment *ab, *bd, *dc;
+        int direct = 0;
         d = route_graph_add_point(graph, &coords[3]);
         profile.turn_around_penalty2 = 0;
         route_graph_add_segment(graph, a, b, &data);
+        ab = a->start;
         route_graph_add_segment(graph, c, b, &data);
         item.id_lo = 102;
         data.len = 2;
         route_graph_add_segment(graph, b, d, &data);
+        bd = b->start;
         item.id_lo = 103;
         route_graph_add_segment(graph, d, c, &data);
+        dc = d->start;
         route_graph_seed_destination(graph, &profile, c, NULL, 0, 0);
         route_graph_compute_shortest_path(graph, &profile, NULL);
-        actual = a->value;
+
+        /* Match only the road fragment beginning at A, not the other
+         * same-item segment beginning at C. The production adapter
+         * uses this exact selector before geometry construction.
+         */
+        start_street = g_malloc0(sizeof(*start_street) + 2 * sizeof(struct coord));
+        destination_street = g_malloc0(sizeof(*destination_street) + 2 * sizeof(struct coord));
+        start_street->item = ab->data.item;
+        start_street->count = 2;
+        start_street->c[0] = a->c;
+        start_street->c[1] = b->c;
+        destination_street->item = dc->data.item;
+        destination_street->count = 2;
+        destination_street->c[0] = d->c;
+        destination_street->c[1] = c->c;
+        position.street = start_street;
+        position.street_direction = 1;
+        position.percent = 0;
+        destination.street = destination_street;
+        destination.percent = 100;
         expected = 5;
         result = route_turn_graph_path(graph, &profile, a, c, &oracle);
         result = result && oracle.cost == expected;
-        result = result && actual == expected;
+        result = result && route_turn_select_plan(graph, &position, &destination, &profile, &selected, &direct);
+        actual = selected.cost;
+        result = result && !direct && actual == expected && selected.len == 3;
+        if (selected.len == 3)
+            result = result && selected.segments[0] == ab && selected.segments[1] == bd
+                     && selected.segments[2] == dc
+                     && selected.directions[0] == 1 && selected.directions[1] == 1
+                     && selected.directions[2] == 1;
         route_turn_path_clear(&oracle);
+        route_turn_path_clear(&selected);
+        g_free(start_street);
+        g_free(destination_street);
     } else {
         expected = -1;
         actual = -1;
