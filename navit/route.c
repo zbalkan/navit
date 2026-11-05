@@ -2972,6 +2972,14 @@ struct coord route_get_coord_dist(struct route *this_, int dist) {
     return dst->c;
 }
 
+/* Exact directed-movement solver is required for predecessor-specific
+ * turn restrictions that cannot be described by two arrival classes.
+ */
+// clang-format off
+#include "route_turn_state.inc"
+#include "route_turn_plan.inc"
+// clang-format on
+
 /**
  * @brief Creates a new route path
  *
@@ -4553,15 +4561,6 @@ struct object_func route_func = {
     (object_func_ref)navit_object_ref,
     (object_func_unref)navit_object_unref,
 };
-
-/* The independent movement-state search is diagnostic/test-only until
- * its performance and route geometry are validated for release builds. */
-#if defined(NAVIT_ROUTING_TEST_HOOKS) || defined(NAVIT_ROUTING_TURN_SHADOW)
-// clang-format off
-#    include "route_turn_state.inc"
-#    include "route_turn_plan.inc"
-// clang-format on
-#endif
 
 /* Test-only access to static routing internals. */
 #ifdef NAVIT_ROUTING_TEST_HOOKS

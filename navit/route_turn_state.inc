@@ -258,9 +258,13 @@ static int route_turn_graph_path_from_arrival(struct route_graph *graph, struct 
     if (winner) {
         out->cost = best_terminal;
         out->terminal = winner->point;
-        if (!goal && winner->point->dst_seg) {
-            out->terminal_segment = winner->point->dst_seg;
-            out->terminal_direction = winner->point == out->terminal_segment->start ? 1 : -1;
+        if (!goal) {
+            int incoming_restricted =
+                winner->incoming && !route_through_traffic_allowed(profile, winner->incoming);
+            out->terminal_segment = incoming_restricted ? winner->point->restricted_dst_seg
+                                                        : winner->point->dst_seg;
+            if (out->terminal_segment)
+                out->terminal_direction = winner->point == out->terminal_segment->start ? 1 : -1;
         }
         for (state = winner; state && state != initial; state = state->previous)
             length++;
