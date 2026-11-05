@@ -24,3 +24,35 @@ scenario,vertices,edges,repeat,implementation,operation,elapsed_ns,cost,oracle_c
 
 Operations are full, increase, and decrease. Implementation names are `legacy` and `movement` in the baseline artifact, or `arrival-experiment` and `movement` in the experiment artifact. Each successful artifact produces 1500 measurement rows (2 topologies × 5 sizes × 25 repetitions × 3 operations × 2 implementations).
 Each benchmark mode builds in Release mode and uploads a separate mode-labeled CSV artifact and environment file even when the benchmark step fails. A build failure before benchmark execution cannot produce a CSV.
+
+
+## Reproducible measurements and reports
+
+Run `Routing performance validation` for a push to `bench/routing-*` or manually from GitHub Actions. The workflow runs **two independent jobs** with their own CMake build trees, correctness validation and artifacts:
+
+| Mode | Compile flag | Through-traffic penalty | Point-search CSV label |
+| --- | --- | ---: | --- |
+| Legacy baseline | experiment OFF | 0 | `legacy` |
+| Restricted-arrival experiment | experiment ON | 9000 | `arrival-experiment` |
+
+Both jobs compare their point search with the same full-recomputation movement-state reference under their respective cost models. These jobs are **not** a cross-mode speedup experiment. The legacy job is a historical zero-penalty control, not a claim that unmodified Navit at penalty 9000 is routing-correct.
+
+Each job uploads `routing-benchmark.csv`, `routing-benchmark-environment.txt`, `routing-benchmark-summary.json` and `routing-benchmark-summary.md`. The Markdown summary is also published to the GitHub Actions step summary. Preserve raw measurements for independent review; a summary cannot substitute for the underlying CSV.
+
+The reporting script requires successful independent cost validation and exactly 25 complete, paired repetitions for each size/topology/operation. It reports median and nearest-rank p95 timings in milliseconds separately for each algorithm. The paired movement-to-point timing ratio is the median of **per-repetition** ratios; values above 1 indicate the point search was faster in that stratum. A zero-duration denominator makes the ratio undefined, rather than manufacturing a speedup.
+
+The measurement schedule alternates algorithm order between repetitions and performs three unreported warm-ups per workload. Benchmark timings exclude graph construction, resetting the graph, oracle evaluation, and CSV serialization. For updates the point search includes local invalidation and incremental repair; the movement search recomputes the path from scratch. This is a workload-method comparison, not identical algorithmic work.
+
+Local reporting of an already captured artifact uses:
+
+`python3 tests/routing/validate_benchmark_csv.py routing-benchmark.csv legacy`
+
+`python3 tests/routing/summarize_benchmark.py routing-benchmark.csv --mode legacy --json-out summary.json --markdown-out summary.md`
+
+Replace `legacy` with `arrival-experiment` for the experimental artifact. The summary generator also runs the CSV validator and refuses missing rows, mismatched implementation labels, inaccurate oracle costs, malformed records and duplicate repetitions. The reporting tests run with the independent oracle workflow.
+
+### Interpretation and remaining acceptance work
+
+The summary quantifies **synthetic CI-runner behavior** only. The 25 samples share a process, machine and runner environment; they are not 25 statistically independent deployments. No significance level, confidence interval or hard latency acceptance threshold is inferred from them.
+
+Before using the results to approve a production routing change, obtain map-backed navigation traces and representative incremental road-closure/reopen, traffic-change and reroute workloads. Include graph memory and heap extraction counts, validate path continuity and ETA, run on repeatable dedicated hardware, and explicitly approve performance budgets. In particular, the current two-arrival-class solver does not model arbitrary incoming-segment turn histories.
