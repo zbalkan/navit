@@ -71,6 +71,14 @@ class BenchmarkSummaryTests(unittest.TestCase):
                 self.assertEqual(report["through_traffic_penalty"], MODES[mode])
                 self.assertEqual(report["results"][0]["point"]["samples"], REPETITIONS)
                 self.assertEqual(report["results"][0]["paired_median_movement_over_point"], 3)
+                by_key = {(r["scenario"], r["vertices"], r["operation"]): r
+                          for r in report["results"]}
+                self.assertEqual(by_key[("chain", 600, "increase")]["optimal_cost_effect"], "changed")
+                if mode == "arrival-experiment":
+                    self.assertEqual(by_key[("skip", 600, "increase")]["optimal_cost_effect"], "unchanged")
+                    self.assertEqual(by_key[("skip", 600, "increase")]["optimal_cost_delta"], 0)
+                else:
+                    self.assertEqual(by_key[("skip", 600, "increase")]["optimal_cost_effect"], "changed")
                 self.assertIn(f"# Routing benchmark: {mode}", to_markdown(report))
 
     def test_rejects_missing_or_corrupt_data(self):
