@@ -1,0 +1,1 @@
+{"schema_version":1,"id":"CORE-002","start":"A","goal":"D","roads":[{"id":"ab","from":"A","to":"B","cost":3},{"id":"bd","from":"B","to":"D","cost":7},{"id":"ac","from":"A","to":"C","cost":2},{"id":"cd","from":"C","to":"D","cost":5}]}

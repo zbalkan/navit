@@ -1,0 +1,11 @@
+#ifndef NAVIT_ROUTING_PRODUCTION_TEST_H
+#define NAVIT_ROUTING_PRODUCTION_TEST_H
+
+/* Test-only symbol exported by navit_core when NAVIT_ROUTING_TEST_HOOKS=ON.
+ * It is absent in ordinary Navit builds.
+ */
+int navit_routing_test_case(int case_id);
+int navit_routing_test_point_size(void);
+int navit_routing_benchmark(int n, int repeats, int shortcuts);
+
+#endif

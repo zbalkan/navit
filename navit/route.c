@@ -116,6 +116,13 @@ struct map_priv {
     struct route *route;
 };
 
+/* Keep the incomplete arrival-state solver disabled in release builds. */
+#ifdef NAVIT_ROUTING_ARRIVAL_EXPERIMENT
+#    define ROUTE_ARRIVAL_ENABLED(profile) ((profile)->through_traffic_penalty > 0)
+#else
+#    define ROUTE_ARRIVAL_ENABLED(profile) 0
+#endif
+
 #define RSD_OFFSET(x) *((int *)route_segment_data_field_pos((x), attr_offset))
 #define RSD_SIZE_WEIGHT(x) *((struct size_weight_limit *)route_segment_data_field_pos((x), attr_vehicle_width))
 #define RSD_DANGEROUS_GOODS(x) *((int *)route_segment_data_field_pos((x), attr_vehicle_dangerous_goods))
@@ -264,6 +271,10 @@ static int route_value_seg(struct vehicleprofile *profile, struct route_graph_po
                            struct route_graph_segment *over, int dir);
 static void route_graph_init(struct route_graph *this, struct route_info *dst, struct vehicleprofile *profile);
 static void route_graph_reset(struct route_graph *this);
+#ifdef NAVIT_ROUTING_TURN_SHADOW
+static void route_turn_shadow_route(struct route_graph *graph, struct vehicleprofile *profile, struct route_info *pos,
+                                    struct route_info *dst);
+#endif
 
 /**
  * @brief Returns the projection used for this route
@@ -1383,7 +1394,16 @@ static struct route_graph_point *route_graph_point_new(struct route_graph *this,
     p->hash_next = this->hash[hashval];
     this->hash[hashval] = p;
     p->value = INT_MAX;
+    p->restricted_value = INT_MAX;
+    p->restricted_rhs = INT_MAX;
     p->dst_val = INT_MAX;
+    p->restricted_dst_val = INT_MAX;
+    p->dst_fraction = -1;
+    p->restricted_dst_fraction = -1;
+    p->queue[0].point = p;
+    p->queue[0].restricted = 0;
+    p->queue[1].point = p;
+    p->queue[1].restricted = 1;
     p->c = *f;
     return p;
 }
@@ -1429,6 +1449,69 @@ void route_graph_free_points(struct route_graph *this) {
     }
 }
 
+/* Seed the destination label(s) in the same heap used for propagation.
+ * Standalone regression fixtures call this helper instead of inserting
+ * graph-point payloads directly into the arrival-state queue.
+ */
+/* Declared later with the shared segment-cost helpers. */
+static int route_through_traffic_allowed(struct vehicleprofile *profile, struct route_graph_segment *seg);
+
+static void route_graph_seed_destination(struct route_graph *graph, struct vehicleprofile *profile,
+                                         struct route_graph_point *point, struct route_graph_segment *segment, int cost,
+                                         int fraction) {
+    int restricted_cost = cost;
+    int arrival_enabled = ROUTE_ARRIVAL_ENABLED(profile);
+
+    /* Preserve the legacy terminal-selection behavior in ordinary builds. */
+    if (!arrival_enabled) {
+        point->dst_val = cost;
+        point->dst_seg = segment;
+        point->dst_fraction = fraction;
+        point->seg = segment;
+        point->rhs = cost;
+        if (point->el) {
+            fh_delete(graph->heap, point->el);
+            point->el = NULL;
+        }
+        point->el = fh_insertkey(graph->heap, MIN(point->rhs, point->value), point);
+        return;
+    }
+
+    if (segment && route_through_traffic_allowed(profile, segment)) {
+        if (cost > INT_MAX - profile->through_traffic_penalty)
+            restricted_cost = INT_MAX;
+        else
+            restricted_cost += profile->through_traffic_penalty;
+    }
+    if (cost < point->dst_val) {
+        point->dst_val = cost;
+        point->dst_seg = segment;
+        point->dst_fraction = fraction;
+        point->seg = segment;
+        point->rhs = cost;
+        if (point->el) {
+            fh_delete(graph->heap, point->el);
+            point->el = NULL;
+        }
+        point->el = fh_insertkey(graph->heap, MIN(point->rhs, point->value),
+                                 arrival_enabled ? (void *)&point->queue[0] : (void *)point);
+    }
+    if (!arrival_enabled || restricted_cost >= point->restricted_dst_val)
+        return;
+    point->restricted_dst_val = restricted_cost;
+    point->restricted_dst_seg = segment;
+    point->restricted_dst_fraction = fraction;
+    point->restricted_rhs = restricted_cost;
+    point->restricted_seg = segment;
+    if (point->restricted_el) {
+        fh_delete(graph->heap, point->restricted_el);
+        point->restricted_el = NULL;
+    }
+    if (restricted_cost != INT_MAX)
+        point->restricted_el =
+            fh_insertkey(graph->heap, MIN(restricted_cost, point->restricted_value), &point->queue[1]);
+}
+
 /**
  * @brief Initializes potential destination nodes.
  *
@@ -1449,20 +1532,12 @@ static void route_graph_init(struct route_graph *this, struct route_info *dst, s
         val = route_value_seg(profile, NULL, s, -1);
         if (val != INT_MAX) {
             val = val * (100 - dst->percent) / 100;
-            s->end->seg = s;
-            s->end->dst_seg = s;
-            s->end->rhs = val;
-            s->end->dst_val = val;
-            s->end->el = fh_insertkey(this->heap, MIN(s->end->rhs, s->end->value), s->end);
+            route_graph_seed_destination(this, profile, s->end, s, val, 100 - dst->percent);
         }
         val = route_value_seg(profile, NULL, s, 1);
         if (val != INT_MAX) {
             val = val * dst->percent / 100;
-            s->start->seg = s;
-            s->start->dst_seg = s;
-            s->start->rhs = val;
-            s->start->dst_val = val;
-            s->start->el = fh_insertkey(this->heap, MIN(s->start->rhs, s->start->value), s->start);
+            route_graph_seed_destination(this, profile, s->start, s, val, dst->percent);
         }
     }
 }
@@ -1497,7 +1572,17 @@ static void route_graph_reset(struct route_graph *this) {
         while (curr) {
             curr->value = INT_MAX;
             curr->dst_val = INT_MAX;
+            curr->restricted_dst_val = INT_MAX;
+            curr->restricted_dst_seg = NULL;
+            curr->dst_fraction = -1;
+            curr->restricted_dst_fraction = -1;
             curr->rhs = INT_MAX;
+            curr->restricted_value = INT_MAX;
+            curr->restricted_rhs = INT_MAX;
+            curr->restricted_seg = NULL;
+            curr->restricted_el = NULL;
+            curr->policy_dirty = 0;
+            curr->restricted_policy_dirty = 0;
             curr->seg = NULL;
             curr->dst_seg = NULL;
             curr->el = NULL;
@@ -2040,38 +2125,44 @@ static int route_through_traffic_allowed(struct vehicleprofile *profile, struct 
  *
  * @return The "cost" needed to travel along the segment
  */
-/* FIXME `from` as a name is highly misleading, find a better one */
-static int route_value_seg(struct vehicleprofile *profile, struct route_graph_point *from,
-                           struct route_graph_segment *over, int dir) {
-    int ret;
+/* Segment passability and travel time, without successor-sensitive costs.
+ * Both legacy and arrival-state search use this common base computation.
+ */
+static int route_value_seg_base(struct vehicleprofile *profile, struct route_graph_segment *over, int dir) {
     struct route_traffic_distortion dist, *distp = NULL;
     if (!dir) {
         dbg(lvl_warning, "dir is zero, assuming positive");
         dir = 1;
     }
-    if (from && (over->start == over->end))
-        return INT_MAX;
     if ((over->data.flags & (dir >= 0 ? profile->flags_forward_mask : profile->flags_reverse_mask)) != profile->flags)
         return INT_MAX;
     if (dir > 0 && (over->start->flags & RP_TURN_RESTRICTION))
         return INT_MAX;
     if (dir < 0 && (over->end->flags & RP_TURN_RESTRICTION))
         return INT_MAX;
-    if (from && from->seg == over)
-        return INT_MAX;
     if (over->data.item.type == type_traffic_distortion)
         return INT_MAX;
     if ((over->start->flags & RP_TRAFFIC_DISTORTION) && (over->end->flags & RP_TRAFFIC_DISTORTION)
-        && route_get_traffic_distortion(over, dir, profile, &dist) && dir != 2 && dir != -2) {
-        /* we have a traffic distortion */
+        && route_get_traffic_distortion(over, dir, profile, &dist) && dir != 2 && dir != -2)
         distp = &dist;
-    }
-    ret = route_time_seg(profile, &over->data, distp);
+    return route_time_seg(profile, &over->data, distp);
+}
+
+/* FIXME `from` as a name is highly misleading, find a better one */
+static int route_value_seg(struct vehicleprofile *profile, struct route_graph_point *from,
+                           struct route_graph_segment *over, int dir) {
+    int ret;
+    if (from && (over->start == over->end || from->seg == over))
+        return INT_MAX;
+    ret = route_value_seg_base(profile, over, dir);
     if (ret == INT_MAX)
         return ret;
     if (!route_through_traffic_allowed(profile, over) && from && from->seg
-        && route_through_traffic_allowed(profile, from->seg))
+        && route_through_traffic_allowed(profile, from->seg)) {
+        if (profile->through_traffic_penalty < 0 || ret > INT_MAX - profile->through_traffic_penalty)
+            return INT_MAX;
         ret += profile->through_traffic_penalty;
+    }
     return ret;
 }
 
@@ -2099,17 +2190,20 @@ static int route_graph_segment_match(struct route_graph_segment *s1, struct rout
  * If any of the two arguments is `INT_MAX`, then `INT_MAX` is returned; else the sum of the two
  * arguments is returned.
  *
- * Note that this currently does not cover cases in which both arguments are less than `INT_MAX` but add
- * up to `val1 + val2 >= INT_MAX`. With Navit’s internal cost definition, `INT_MAX` (2^31) is equivalent
- * to approximately 7 years, making this unlikely to become a real issue.
+ * Nonnegative costs are saturated before addition to avoid signed overflow.
+ * Negative costs are invalid for the nonnegative shortest-path search.
  */
 static int route_value_add(int val1, int val2) {
     if (val1 == INT_MAX)
         return INT_MAX;
     if (val2 == INT_MAX)
         return INT_MAX;
+    if (val1 < 0 || val2 < 0 || val1 > INT_MAX - val2)
+        return INT_MAX;
     return val1 + val2;
 }
+
+#include "route_arrival_state.inc"
 
 /**
  * @brief Updates the lookahead value of a point in the route graph and updates its heap membership.
@@ -2130,6 +2224,13 @@ static void route_graph_point_update(struct vehicleprofile *profile, struct rout
                                      struct fibheap *heap) {
     struct route_graph_segment *s = NULL;
     int new, val;
+
+    if (ROUTE_ARRIVAL_ENABLED(profile)) {
+        route_arrival_update(profile, p, heap);
+        return;
+    }
+
+    struct route_graph_segment *previous_successor = p->seg;
 
     p->rhs = p->dst_val;
     p->seg = p->dst_seg;
@@ -2176,9 +2277,64 @@ static void route_graph_point_update(struct vehicleprofile *profile, struct rout
         p->el = NULL;
     }
 
-    if (p->rhs != p->value)
-        /* The point is locally inconsistent, add (or re-add) it to the heap */
+    if (previous_successor != p->seg)
+        p->policy_dirty = 1;
+    if (p->rhs != p->value || p->policy_dirty)
+        /* Propagate changes in successor identity as well as scalar costs. */
         p->el = fh_insertkey(heap, MIN(p->rhs, p->value), p);
+}
+
+/*
+ * One globally key-ordered queue holds both arrival labels. A settled
+ * label only invalidates predecessors whose connecting road has that
+ * arrival class; both labels of each predecessor are then reevaluated.
+ */
+static void route_graph_compute_arrival_states(struct route_graph *graph, struct vehicleprofile *profile) {
+    struct route_arrival_queue_item *entry;
+    struct route_graph_point *point;
+    struct route_graph_segment *s;
+    int restricted;
+
+    while ((entry = fh_extractmin(graph->heap))) {
+        point = entry->point;
+        restricted = entry->restricted;
+        if (restricted) {
+            point->restricted_el = NULL;
+            if (point->restricted_value == point->restricted_rhs && point->restricted_policy_dirty)
+                point->restricted_policy_dirty = 0;
+            else if (point->restricted_value > point->restricted_rhs) {
+                point->restricted_value = point->restricted_rhs;
+                point->restricted_policy_dirty = 0;
+            } else {
+                point->restricted_value = INT_MAX;
+                point->restricted_policy_dirty = 0;
+                route_arrival_update(profile, point, graph->heap);
+            }
+        } else {
+            point->el = NULL;
+            if (point->value == point->rhs && point->policy_dirty)
+                point->policy_dirty = 0;
+            else if (point->value > point->rhs) {
+                point->value = point->rhs;
+                point->policy_dirty = 0;
+            } else {
+                point->value = INT_MAX;
+                point->policy_dirty = 0;
+                route_arrival_update(profile, point, graph->heap);
+            }
+        }
+
+        for (s = point->start; s; s = s->start_next)
+            if (s->start != s->end && s->data.item.type >= route_item_first && s->data.item.type <= route_item_last
+                && !!(s->data.flags & AF_THROUGH_TRAFFIC_LIMIT) == restricted
+                && route_value_seg_base(profile, s, -2) != INT_MAX)
+                route_arrival_update(profile, s->end, graph->heap);
+        for (s = point->end; s; s = s->end_next)
+            if (s->start != s->end && s->data.item.type >= route_item_first && s->data.item.type <= route_item_last
+                && !!(s->data.flags & AF_THROUGH_TRAFFIC_LIMIT) == restricted
+                && route_value_seg_base(profile, s, 2) != INT_MAX)
+                route_arrival_update(profile, s->start, graph->heap);
+    }
 }
 
 /**
@@ -2199,14 +2355,25 @@ static void route_graph_compute_shortest_path(struct route_graph *graph, struct 
     struct route_graph_point *p_min;
     struct route_graph_segment *s = NULL;
 
+    if (ROUTE_ARRIVAL_ENABLED(profile)) {
+        route_graph_compute_arrival_states(graph, profile);
+        if (cb)
+            callback_call_0(cb);
+        return;
+    }
+
     while (!route_graph_is_path_computed(graph) && (p_min = fh_extractmin(graph->heap))) {
         p_min->el = NULL;
-        if (p_min->value > p_min->rhs)
+        if (p_min->value == p_min->rhs && p_min->policy_dirty) {
+            p_min->policy_dirty = 0;
+        } else if (p_min->value > p_min->rhs) {
             /* cost has decreased, update point value */
             p_min->value = p_min->rhs;
-        else {
+            p_min->policy_dirty = 0;
+        } else {
             /* cost has increased, re-evaluate */
             p_min->value = INT_MAX;
+            p_min->policy_dirty = 0;
             route_graph_point_update(profile, p_min, graph->heap);
         }
 
@@ -2806,6 +2973,15 @@ struct coord route_get_coord_dist(struct route *this_, int dist) {
     return dst->c;
 }
 
+/* Exact directed-movement solver is required for predecessor-specific
+ * turn restrictions that cannot be described by two arrival classes.
+ */
+// clang-format off
+#include "route_turn_state.inc"
+#include "route_turn_plan.inc"
+#include "route_turn_adapter.inc"
+// clang-format on
+
 /**
  * @brief Creates a new route path
  *
@@ -2841,6 +3017,18 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
             && pos->lenextra + dst->lenextra
                    > transform_distance(map_projection(pos->street->item.map), &pos->c, &dst->c)))
         return route_path_new_offroad(this, pos, dst);
+#ifdef NAVIT_ROUTING_TURN_SHADOW
+    /* Diagnostic only: never change the legacy route or graph state. */
+    route_turn_shadow_route(this, profile, pos, dst);
+#endif
+    /* Correctness-first selection: arrival class alone cannot express an
+     * incoming-segment turnaround rule. Choose exact directed movements
+     * before converting their plan to ordinary Navit route geometry.
+     * Incremental movement-state caching remains future work.
+     */
+    if (ROUTE_ARRIVAL_ENABLED(profile))
+        return route_path_new_movement(this, oldpath, pos, dst, profile);
+
     while ((s = route_graph_get_segment(this, pos->street, s))) {
         val = route_value_seg(profile, NULL, s, 2);
         if (val != INT_MAX && s->end->value != INT_MAX) {
@@ -2849,7 +3037,7 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
             if (route_graph_segment_match(s, this->avoid_seg) && pos->street_direction < 0)
                 val += profile->turn_around_penalty;
             dbg(lvl_debug, "val1 %d", val);
-            val1_new = s->end->value + val;
+            val1_new = route_value_add(val, s->end->value);
             dbg(lvl_debug, "val1 +%d=%d", s->end->value, val1_new);
             if (val1_new < val1) {
                 val1 = val1_new;
@@ -2863,7 +3051,7 @@ static struct route_path *route_path_new(struct route_graph *this, struct route_
             if (route_graph_segment_match(s, this->avoid_seg) && pos->street_direction > 0)
                 val += profile->turn_around_penalty;
             dbg(lvl_debug, "val2 %d", val);
-            val2_new = s->start->value + val;
+            val2_new = route_value_add(val, s->start->value);
             dbg(lvl_debug, "val2 +%d=%d", s->start->value, val2_new);
             if (val2_new < val2) {
                 val2 = val2_new;
@@ -4362,3 +4550,59 @@ struct object_func route_func = {
     (object_func_ref)navit_object_ref,
     (object_func_unref)navit_object_unref,
 };
+
+/* Test-only access to static routing internals. */
+#ifdef NAVIT_ROUTING_TEST_HOOKS
+#    include "../tests/routing/benchmark_production.inc"
+#    include "../tests/routing/production_adapter_cases.inc"
+#    include "../tests/routing/production_arrival_semantics.inc"
+#    include "../tests/routing/production_hooks.inc"
+#    include "../tests/routing/production_incoming_oracle.inc"
+#    include "../tests/routing/production_movement_cases.inc"
+#    include "../tests/routing/production_partial_start_cases.inc"
+#    include "../tests/routing/production_penalty_cases.inc"
+#    include "../tests/routing/production_random_oracle.inc"
+#    include "../tests/routing/production_state_solver.inc"
+#    include "../tests/routing/production_terminal_profile_cases.inc"
+#    include "../tests/routing/production_terminal_transition.inc"
+#endif
+
+#ifdef NAVIT_ROUTING_TURN_SHADOW
+/* Compare live, map-matched route candidates without modifying the active
+ * route. This does not yet handle direct travel between two positions on
+ * the same segment and is therefore not an acceptance oracle.
+ */
+static void route_turn_shadow_route(struct route_graph *graph, struct vehicleprofile *profile, struct route_info *pos,
+                                    struct route_info *dst) {
+    struct route_graph_segment *s = NULL;
+    struct route_turn_path candidate = {0};
+    int best = INT_MAX;
+    int attempts = 0;
+
+    while ((s = route_graph_get_segment(graph, pos->street, s))) {
+        struct route_graph_segment *terminal_segment = NULL;
+        attempts++;
+        /* The direct same-segment path can be shorter than either
+         * endpoint detour. It is a distinct candidate, not a
+         * replacement for the endpoint search.
+         */
+        if (dst && dst->street && item_is_equal(pos->street->item, dst->street->item)) {
+            while ((terminal_segment = route_graph_get_segment(graph, dst->street, terminal_segment))) {
+                if (terminal_segment == s
+                    && route_turn_plan_direct_on_segment(profile, s, pos->percent, dst->percent, pos->street_direction,
+                                                         &candidate)
+                    && candidate.cost < best)
+                    best = candidate.cost;
+                route_turn_path_clear(&candidate);
+            }
+        }
+        if (route_turn_plan_from_segment(graph, profile, s, pos->percent, pos->street_direction, &candidate)
+            && candidate.cost < best)
+            best = candidate.cost;
+        route_turn_path_clear(&candidate);
+    }
+
+    dbg(lvl_debug, "turn-state shadow: candidates=%d best_cost=%d (tenths of seconds, diagnostic only)", attempts,
+        best);
+}
+#endif

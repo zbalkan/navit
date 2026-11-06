@@ -65,7 +65,7 @@ enum attr_format {
 #define AF_MOPED (1 << 28)
 #define AF_HORSE (1 << 29)
 #define AF_BIKE (1 << 30)
-#define AF_PEDESTRIAN (1 << 31)
+#define AF_PEDESTRIAN (1U << 31)
 
 #define AF_PBH (AF_PEDESTRIAN | AF_BIKE | AF_HORSE)
 #define AF_MOTORIZED_FAST                                                                                              \
