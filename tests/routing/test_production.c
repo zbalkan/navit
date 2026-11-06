@@ -10,8 +10,8 @@ int main(int argc, char **argv) {
   }
   printf("routing-point-size=%d\n", navit_routing_test_point_size());
   /* 29: INCR-006a scratch consistency; 31–33: default P=9000. */
-  const int cases[] = {1,  2,  3,  4,  5,  6,  29, 31, 32, 33, 34, 35,
-                       36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 49};
+  const int cases[] = {1,  2,  3,  4,  5,  6,  29, 31, 32, 33, 34, 35, 36, 37,
+                       38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 49, 50, 51};
   int failures = 0;
   unsigned int i;
   for (i = 0; i < sizeof(cases) / sizeof(cases[0]); ++i) {

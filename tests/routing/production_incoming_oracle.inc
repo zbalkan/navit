@@ -14,6 +14,12 @@ struct routing_incoming_edge {
     int closed;
 };
 
+/* Keep this oracle self-contained: the CI formatter sorts test includes. */
+static unsigned int routing_incoming_rand(unsigned int *seed) {
+    *seed = *seed * 1664525U + 1013904223U;
+    return *seed;
+}
+
 static int routing_incoming_reference(const struct routing_incoming_edge *edges,
                                       int edge_count, int start, int goal, int penalty,
                                       int *best_out) {
@@ -98,17 +104,17 @@ static int navit_routing_test_incoming_oracle(void) {
                 from = i;
                 to = i + 1;
             } else {
-                from = (int)(routing_differential_rand(&rng) % (unsigned int)n);
-                to = (from + 1 + (int)(routing_differential_rand(&rng) % (unsigned int)(n - 1))) % n;
+                from = (int)(routing_incoming_rand(&rng) % (unsigned int)n);
+                to = (from + 1 + (int)(routing_incoming_rand(&rng) % (unsigned int)(n - 1))) % n;
             }
-            restricted = (int)(routing_differential_rand(&rng) % 100U) < (seed % 3 == 0 ? 10 : seed % 3 == 1 ? 30 : 60);
+            restricted = (int)(routing_incoming_rand(&rng) % 100U) < (seed % 3 == 0 ? 10 : seed % 3 == 1 ? 30 : 60);
             items[i].type = type_street_0;
             items[i].id_lo = 8000 + i;
             data.item = &items[i];
-            data.len = 1 + (int)(routing_differential_rand(&rng) % 9U);
+            data.len = 1 + (int)(routing_incoming_rand(&rng) % 9U);
             data.maxspeed = 36;
             data.flags = AF_SPEED_LIMIT | (restricted ? AF_THROUGH_TRAFFIC_LIMIT : 0);
-            if ((routing_differential_rand(&rng) % 5U) == 0)
+            if ((routing_incoming_rand(&rng) % 5U) == 0)
                 data.flags |= AF_ONEWAY;
             route_graph_add_segment(graph, points[from], points[to], &data);
             segments[i] = points[from]->start;

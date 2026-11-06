@@ -102,6 +102,69 @@ static int navit_routing_test_movement_semantics(int case_id) {
                          && path.len == 1 && path.segments[0] == ab;
             }
         }
+    } else if (case_id == 50) {
+        /* A different segment of the same OSM road, traversed in the
+         * opposite direction, pays the configured turnaround penalty.
+         * Compare it with an independently identified forward road.
+         */
+        struct item alternate_item = { 0 };
+        struct route_graph_segment *reverse_piece, *alternate;
+        profile.turn_around_penalty2 = 12;
+        data.len = 3;
+        route_graph_add_segment(graph, c, b, &data);
+        reverse_piece = c->start;
+        alternate_item.type = type_street_0;
+        alternate_item.id_lo = 501;
+        data.item = &alternate_item;
+        data.len = 10;
+        route_graph_add_segment(graph, b, c, &data);
+        alternate = b->start;
+
+        result = route_turn_graph_path_from_arrival(graph, &profile, b, ab, 1, c, &path);
+        observed = path.cost;
+        result = result && observed == 10 && path.len == 1
+                 && path.segments[0] == alternate && path.directions[0] == 1;
+        route_turn_path_clear(&path);
+
+        profile.turn_around_penalty2 = 2;
+        result = result && route_turn_graph_path_from_arrival(graph, &profile, b, ab, 1, c, &path);
+        observed = path.cost;
+        result = result && observed == 5 && path.len == 1
+                 && path.segments[0] == reverse_piece && path.directions[0] == -1;
+    } else if (case_id == 51) {
+        /* Recompute the terminal partial-road cost from the fraction
+         * and include the restricted-to-open transition penalty.
+         */
+        struct item destination_item = { 0 };
+        struct route_graph_segment *terminal_road;
+        ab->data.flags |= AF_THROUGH_TRAFFIC_LIMIT;
+        profile.through_traffic_penalty = 100;
+        destination_item.type = type_street_0;
+        destination_item.id_lo = 502;
+        data.item = &destination_item;
+        data.len = 10;
+        route_graph_add_segment(graph, b, c, &data);
+        terminal_road = b->start;
+        b->dst_seg = terminal_road;
+        b->dst_fraction = 50;
+        /* Deliberately stale: 50% of the 10-tick road is 5, not 2. */
+        b->dst_val = 2;
+        b->restricted_dst_seg = terminal_road;
+        b->restricted_dst_fraction = 50;
+        b->restricted_dst_val = 2;
+
+        result = route_turn_graph_path_to_terminals(graph, &profile, a, &path);
+        observed = path.cost;
+        result = result && observed == 106 && path.len == 1
+                 && path.terminal == b && path.terminal_segment == terminal_road
+                 && path.terminal_direction == 1 && path.segments[0] == ab;
+
+        route_turn_path_clear(&path);
+        profile.through_traffic_penalty = 0;
+        result = result && route_turn_graph_path_to_terminals(graph, &profile, a, &path);
+        observed = path.cost;
+        result = result && observed == 6 && path.len == 1
+                 && path.terminal == b && path.terminal_segment == terminal_road;
     } else if (case_id == 14) {
         /* Forward one-way is valid; the opposite direction is not. */
         result = route_turn_graph_path(graph, &profile, a, b, &path);
